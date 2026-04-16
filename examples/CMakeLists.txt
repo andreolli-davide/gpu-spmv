@@ -8,7 +8,7 @@ target_include_directories(example_spmv_basics PRIVATE
     ${PROJECT_SOURCE_DIR}/src/cpu
 )
 
-target_link_libraries(example_spmv_basics PRIVATE common)
+target_link_libraries(example_spmv_basics PRIVATE common spmv_cpu)
 
 # Copy binary to build root for convenience
 add_custom_command(TARGET example_spmv_basics POST_BUILD
