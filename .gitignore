@@ -1,0 +1,46 @@
+# Ignore .claude directory (local project files, notes, roadmap, etc.)
+.claude/
+
+# Ignore compiled binaries and objects
+*.o
+*.so
+*.exe
+*.out
+build/
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ignore temporary files
+*.tmp
+*.bak
+*.log
+
+# Ignore large data files (optional - uncomment if storing matrices in repo)
+# data/matrices/*.mtx
+# results/*.csv
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore Visual Studio files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Ignore CUDA build artifacts
+*.cudafe1.c
+*.cudafe1.cpp
+*.fatbin
+*.fatbin.c
+*.module_id
+
+# Ignore Claude Code files
+CLAUDE.md
