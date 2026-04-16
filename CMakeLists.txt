@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
-project(SpMV_GPU VERSION 1.0 LANGUAGES CXX CUDA)
+project(SpMV_GPU VERSION 1.0 LANGUAGES CXX)
 
 # --------------------------------------------------------------------------
 # Build type
@@ -15,19 +15,20 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
-if(CMAKE_BUILD_TYPE Debug)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-g)
 else()
     add_compile_options(-O3)
 endif()
 
 # --------------------------------------------------------------------------
-# CUDA Toolkit (optional — project builds CPU parts without it)
+# CUDA Toolkit (optional — enable CUDA language only when found)
 # --------------------------------------------------------------------------
 find_package(CUDAToolkit QUIET)
 if(CUDAToolkit_FOUND)
     message(STATUS "CUDA Toolkit found: ${CUDAToolkit_INCLUDE_DIRS}")
     message(STATUS "CUDA Runtime version: ${CUDAToolkit_VERSION}")
+    enable_language(CUDA)
 else()
     message(STATUS "CUDA Toolkit not found — GPU targets will be skipped")
 endif()
@@ -56,4 +57,5 @@ message(STATUS "Matrix directory: ${MATRIX_DIR}")
 # Subdirectories
 # --------------------------------------------------------------------------
 add_subdirectory(src)
+add_subdirectory(examples)
 add_subdirectory(tests)
