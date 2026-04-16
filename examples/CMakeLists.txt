@@ -5,6 +5,7 @@ add_executable(example_spmv_basics example_spmv_basics.cpp)
 target_include_directories(example_spmv_basics PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/common
+    ${PROJECT_SOURCE_DIR}/src/cpu
 )
 
 target_link_libraries(example_spmv_basics PRIVATE common)

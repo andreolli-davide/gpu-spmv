@@ -7,6 +7,7 @@ add_executable(test_spmv_cpu
 target_include_directories(test_spmv_cpu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/common
+    ${PROJECT_SOURCE_DIR}/src/cpu
 )
 
 target_link_libraries(test_spmv_cpu PRIVATE common)
