@@ -34,9 +34,37 @@ else()
 endif()
 
 # --------------------------------------------------------------------------
-# OpenMP (optional)
+# OpenMP (optional — required for CPU parallel baseline)
 # --------------------------------------------------------------------------
-find_package(OpenMP OPTIONAL COMPONENT CXX)
+# Try the standard CMake module first.
+find_package(OpenMP QUIET)
+if(NOT OpenMP_CXX_FOUND)
+    # ------------------------------------------------------------------
+    # Workaround for macOS with AppleClang/Homebrew LLVM:
+    # Homebrew installs libomp as a dylib without providing the CMake
+    # FindOpenMP module with IMPORTED targets.  We create the target
+    # manually so target_link_libraries(... OpenMP::OpenMP_CXX) works.
+    # ------------------------------------------------------------------
+    find_library(OPENMP_LIB NAMES omp PATHS /opt/homebrew/lib NO_DEFAULT_PATH)
+    if(OPENMP_LIB)
+        # Find omp.h in the Homebrew LLVM include path
+        file(GLOB _llvm_omp_glob "/opt/homebrew/Cellar/llvm/*/lib/clang/*/include/omp.h")
+        if(_llvm_omp_glob)
+            list(GET _llvm_omp_glob 0 OPENMP_INCLUDE_DIR)
+            get_filename_component(OPENMP_INCLUDE_DIR "${OPENMP_INCLUDE_DIR}" DIRECTORY)
+        endif()
+
+        if(OPENMP_INCLUDE_DIR AND OPENMP_LIB)
+            message(STATUS "OpenMP found via Homebrew libomp: ${OPENMP_LIB}")
+            add_library(OpenMP::OpenMP_CXX INTERFACE IMPORTED)
+            set_target_properties(OpenMP::OpenMP_CXX PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${OPENMP_INCLUDE_DIR}"
+                INTERFACE_LINK_LIBRARIES "${OPENMP_LIB}"
+            )
+            set(OpenMP_CXX_FOUND TRUE)
+        endif()
+    endif()
+endif()
 
 # --------------------------------------------------------------------------
 # Matrix directory (required)
