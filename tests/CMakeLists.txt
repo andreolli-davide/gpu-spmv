@@ -10,7 +10,7 @@ target_include_directories(test_spmv_cpu PRIVATE
     ${PROJECT_SOURCE_DIR}/src/cpu
 )
 
-target_link_libraries(test_spmv_cpu PRIVATE common)
+target_link_libraries(test_spmv_cpu PRIVATE common spmv_cpu)
 
 # Copy test binary into build root for convenience
 add_custom_command(TARGET test_spmv_cpu POST_BUILD

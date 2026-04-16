@@ -27,6 +27,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdlib>
+#include <cmath>     // std::fabs
 
 #include "spmv_cpu.h"
 #include "timer.h"
