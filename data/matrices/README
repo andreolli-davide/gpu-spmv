@@ -1,0 +1,6 @@
+# Data directory for test matrices
+#
+# Create symlinks to your .mtx files here, e.g.:
+#   ln -s /path/to/your/matrices/rmat.mat data/matrices/
+#
+# The MATRIX_DIR CMake variable should point to this directory.
