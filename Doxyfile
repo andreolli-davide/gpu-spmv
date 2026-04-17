@@ -1,0 +1,28 @@
+# Doxyfile — Standalone Doxygen configuration for GitHub Actions CI
+# This file is used by .github/workflows/docs.yml
+
+PROJECT_NAME = "SpMV GPU Optimization"
+PROJECT_NUMBER = 1.0.0
+OUTPUT_DIRECTORY = docs/_build/doxygen
+
+INPUT = src/common \
+        src/cpu \
+        examples/example_spmv_basics.cpp
+
+GENERATE_HTML = NO
+GENERATE_XML = YES
+XML_OUTPUT = docs/_build/xml
+
+SOURCE_BROWSER = YES
+SHOW_INCLUDE_FILES = YES
+
+OPTIMIZE_OUTPUT_JAVA = NO
+OPTIMIZE_OUTPUT_FOR_C = NO
+BUILTIN_STL_SUPPORT = YES
+CPP_CLI_SUPPORT = NO
+EXTRACT_ALL = YES
+EXTRACT_PRIVATE = NO
+EXTRACT_STATIC = YES
+
+QUIET = YES
+WARNINGS = NO
