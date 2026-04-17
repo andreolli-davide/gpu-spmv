@@ -30,6 +30,12 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Ignore documentation build output
+docs/_build/
+
+# Ignore Python virtual environments for docs
+.docs-venv/
+
 # Ignore Visual Studio files
 *.sln
 *.vcxproj
@@ -42,5 +48,5 @@ __pycache__/
 *.fatbin.c
 *.module_id
 
-# Ignore Claude Code files
-CLAUDE.md
+# Ignore Serena AI tool files
+.serena/
