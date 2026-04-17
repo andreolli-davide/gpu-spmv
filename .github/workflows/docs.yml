@@ -51,9 +51,7 @@ jobs:
           sudo apt-get install -y doxygen
 
       - name: Build Doxygen XML
-        run: |
-          mkdir -p docs/_build/xml
-          doxygen Doxyfile
+        run: doxygen Doxyfile
 
       - name: Build Sphinx HTML
         env:

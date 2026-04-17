@@ -3,7 +3,7 @@
 
 PROJECT_NAME = "SpMV GPU Optimization"
 PROJECT_NUMBER = 1.0.0
-OUTPUT_DIRECTORY = docs/_build/doxygen
+OUTPUT_DIRECTORY = docs/_build
 
 INPUT = src/common \
         src/cpu \
@@ -11,7 +11,7 @@ INPUT = src/common \
 
 GENERATE_HTML = NO
 GENERATE_XML = YES
-XML_OUTPUT = docs/_build/xml
+XML_OUTPUT = xml
 
 SOURCE_BROWSER = YES
 SHOW_INCLUDE_FILES = YES
