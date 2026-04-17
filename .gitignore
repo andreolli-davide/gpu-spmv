@@ -52,4 +52,5 @@ docs/_build/
 .serena/
 
 # Ignore OpenCode local configuration (contains SSH credentials)
-.opencode.yml
+.opencode/
+.papers/
