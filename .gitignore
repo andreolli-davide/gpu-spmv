@@ -21,9 +21,8 @@ build/
 *.bak
 *.log
 
-# Ignore large data files (optional - uncomment if storing matrices in repo)
-# data/matrices/*.mtx
-# results/*.csv
+# Ignore large data files (matrices, results, etc.)
+data/
 
 # Ignore Python cache
 __pycache__/

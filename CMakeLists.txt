@@ -82,9 +82,17 @@ endif()
 message(STATUS "Matrix directory: ${MATRIX_DIR}")
 
 # --------------------------------------------------------------------------
+# Documentation (optional)
+# --------------------------------------------------------------------------
+option(BUILD_DOCS "Build documentation with Doxygen/Sphinx" OFF)
+if(BUILD_DOCS)
+    find_package(Doxygen REQUIRED)
+    add_subdirectory(docs)
+endif()
+
+# --------------------------------------------------------------------------
 # Subdirectories
 # --------------------------------------------------------------------------
 add_subdirectory(src)
 add_subdirectory(examples)
 add_subdirectory(tests)
-add_subdirectory(docs)
