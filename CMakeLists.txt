@@ -29,8 +29,11 @@ if(CUDAToolkit_FOUND)
     message(STATUS "CUDA Toolkit found: ${CUDAToolkit_INCLUDE_DIRS}")
     message(STATUS "CUDA Runtime version: ${CUDAToolkit_VERSION}")
     enable_language(CUDA)
+    # Re-find after enable_language to populate variables
+    find_package(CUDAToolkit REQUIRED)
 else()
     message(STATUS "CUDA Toolkit not found — GPU targets will be skipped")
+    enable_language(CUDA)
 endif()
 
 # --------------------------------------------------------------------------

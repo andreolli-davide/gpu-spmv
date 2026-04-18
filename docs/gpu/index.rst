@@ -13,6 +13,7 @@ and relevance to our implementation.
    :maxdepth: 2
 
    papers
+   kernels
 
 Indices and tables
 ==================
