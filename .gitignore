@@ -50,6 +50,12 @@ docs/_build/
 # Ignore Serena AI tool files
 .serena/
 
+# Ignore Sisyphus planning and orchestration files
+.sisyphus/
+
 # Ignore OpenCode local configuration (contains SSH credentials)
 .opencode/
 .papers/
+
+# Ignore SLURM job scripts (contain user-specific configurations)
+.scripts/
