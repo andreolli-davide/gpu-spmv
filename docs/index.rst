@@ -11,6 +11,7 @@ Welcome to the SpMV GPU Optimization project documentation.
    common/matrix_market
    common/timer
    cpu/spmv
+   gpu/index
 
 Indices and tables
 ==================
