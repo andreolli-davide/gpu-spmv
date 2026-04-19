@@ -83,7 +83,8 @@ __global__ void spmv_gpu_v2_kernel(const double* __restrict__ d_values,
                                    const int64_t* __restrict__ d_row_ptr,
                                    const double* __restrict__ d_x,
                                    double* __restrict__ d_y,
-                                   int64_t rows) {
+                                   int64_t rows,
+                                   int64_t x_size) {
     // Shared memory for input vector x (tiled)
     // Size: SHARED_ELEMENTS doubles (default 32KB = 4096 elements)
     extern __shared__ double smem_x[];
@@ -104,7 +105,7 @@ __global__ void spmv_gpu_v2_kernel(const double* __restrict__ d_values,
     // index block_start + threadIdx.x, block_start + threadIdx.x + blockDim.x, etc.
     for (int64_t i = threadIdx.x; i < SHARED_ELEMENTS; i += blockDim.x) {
         const int64_t x_idx = block_start + i;
-        if (x_idx < rows) {  // bounds check for last block
+        if (x_idx < x_size) {  // bounds check for last block
             smem_x[i] = __ldg(&d_x[x_idx]);
         }
     }
@@ -187,7 +188,8 @@ void spmv_gpu_v2(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
         d_matrix.d_row_ptr,
         d_x.d_data,
         d_y.d_data,
-        A.rows
+        A.rows,
+        A.cols
     );
 
     // Check for kernel launch errors
@@ -240,17 +242,17 @@ void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
         constexpr int ELEMENTS_16K = (16 * 1024) / sizeof(double);
         spmv_gpu_v2_kernel<ELEMENTS_16K><<<grid_dim, BLOCK_DIM, shared_mem_bytes>>>(
             d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
+            d_x.d_data, d_y.d_data, A.rows, A.cols);
     } else if (shared_mem_bytes <= 32 * 1024) {
         constexpr int ELEMENTS_32K = (32 * 1024) / sizeof(double);
         spmv_gpu_v2_kernel<ELEMENTS_32K><<<grid_dim, BLOCK_DIM, shared_mem_bytes>>>(
             d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
+            d_x.d_data, d_y.d_data, A.rows, A.cols);
     } else {
         constexpr int ELEMENTS_48K = (48 * 1024) / sizeof(double);
         spmv_gpu_v2_kernel<ELEMENTS_48K><<<grid_dim, BLOCK_DIM, shared_mem_bytes>>>(
             d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
+            d_x.d_data, d_y.d_data, A.rows, A.cols);
     }
 
     CUDA_CHECK(cudaGetLastError());

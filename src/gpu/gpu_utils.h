@@ -26,7 +26,9 @@
 
 #include <cstdint>   // int64_t
 #include <cstdio>    // fprintf, stderr
+#ifdef __CUDACC__
 #include <cuda_runtime.h>  // CUDA runtime API
+#endif
 
 #include "../common/sparse_matrix.h"  // SparseMatrix, DenseVector
 
