@@ -26,6 +26,10 @@
 // Thread Mapping:
 //   thread_id = block_idx * block_dim + thread_idx (one thread per row)
 //
+// Persistent Buffer Support:
+//   For repeated SpMV calls with the same matrix, see gpu_persistent_buffers.h
+//   and spmv_gpu_v2_persistent() to eliminate per-call cudaMalloc/cudaFree overhead.
+//
 // =============================================================================
 
 #include <cuda_runtime.h>

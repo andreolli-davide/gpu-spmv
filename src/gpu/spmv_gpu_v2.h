@@ -32,6 +32,10 @@
 // Verification:
 //   Same as v1 — use --verify flag and infinity-norm < 1e-10 tolerance.
 //
+// Persistent Buffer Support:
+//   For repeated SpMV calls with the same matrix, see gpu_persistent_buffers.h
+//   and spmv_gpu_v2_persistent() to eliminate per-call cudaMalloc/cudaFree overhead.
+//
 // =============================================================================
 
 #ifndef SPMV_GPU_V2_H
