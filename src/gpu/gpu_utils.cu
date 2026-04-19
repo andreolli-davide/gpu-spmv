@@ -195,6 +195,37 @@ void free_device_vector(DeviceVector& d_vec) {
 }
 
 // =============================================================================
+// allocate_device_matrix_ell — ELL format GPU allocation
+// =============================================================================
+
+DeviceMatrix allocate_device_matrix_ell(const ELL_SparseMatrix& A) {
+    DeviceMatrix dm;
+    dm.rows = A.rows;
+    dm.nnz = A.nnz;
+    dm.max_row_length = A.max_row_length;
+
+    const size_t values_size = A.rows * A.max_row_length * sizeof(double);
+    const size_t col_size = A.rows * A.max_row_length * sizeof(int64_t);
+
+    CUDA_CHECK(cudaMalloc(&dm.d_values_ell, values_size));
+    CUDA_CHECK(cudaMalloc(&dm.d_col_index_ell, col_size));
+
+    CUDA_CHECK(cudaMemcpy(dm.d_values_ell, A.values.data(), values_size, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(dm.d_col_index_ell, A.col_index.data(), col_size, cudaMemcpyHostToDevice));
+
+    return dm;
+}
+
+// =============================================================================
+// free_device_matrix_ell — ELL format GPU deallocation
+// =============================================================================
+
+void free_device_matrix_ell(const DeviceMatrix& dm) {
+    if (dm.d_values_ell) cudaFree(dm.d_values_ell);
+    if (dm.d_col_index_ell) cudaFree(dm.d_col_index_ell);
+}
+
+// =============================================================================
 // auto_select_block_size — Occupancy optimization based on matrix sparsity
 // =============================================================================
 

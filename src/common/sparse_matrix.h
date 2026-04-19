@@ -109,6 +109,40 @@ struct COO_SparseMatrix {
 };
 
 // =============================================================================
+// ELL_SparseMatrix — ELLPACK (Equal-Length List) format
+// =============================================================================
+// Pads all rows to the same length (max_row_length) with zeros.
+// Enables coalesced memory access and eliminates row-boundary checks.
+//
+// Memory layout: values and col_index are stored row-by-row, all rows padded
+// to max_row_length. Entries with col_index = -1 are padding (no value).
+//
+// Example 3×4 matrix with max_row_length=2:
+//   row 0: [a b]   values   = [a, b, c, d, 0, 0]
+//   row 1: [c  ]   col_idx  = [0, 3, 1, -1, -1, -1]
+//   row 2: [d  ]
+//
+// Best for: Regular matrices with similar row lengths (FEM, structured grids).
+// Warning: Can be wasteful for highly irregular matrices (e.g., webbase).
+//
+// Reference: Bell & Garland '09 "Efficient Sparse Matrix-Vector Multiplication on GPUs"
+//
+struct ELL_SparseMatrix {
+    int64_t rows = 0;
+    int64_t cols = 0;
+    int64_t nnz = 0;
+    int64_t max_row_length = 0;  // Padded row length (all rows same)
+
+    std::vector<double> values;      // size: rows × max_row_length
+    std::vector<int64_t> col_index; // size: rows × max_row_length (-1 for padding)
+
+    ELL_SparseMatrix() = default;
+    explicit ELL_SparseMatrix(int64_t rows, int64_t cols, int64_t max_row_length);
+    void allocate();
+    int64_t memory_bytes() const;
+};
+
+// =============================================================================
 // DenseVector — flat double array with size tracking
 // =============================================================================
 // Used for the input vector x and output vector y in SpMV (y = A·x).

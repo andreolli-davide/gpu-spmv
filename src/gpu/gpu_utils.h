@@ -42,15 +42,18 @@ namespace spmv {
 // Use free_device_matrix() to release.
 //
 struct DeviceMatrix {
-    double*   d_values    = nullptr;  // non-zero values, size nnz
-    int64_t*  d_col_index = nullptr;  // column indices, size nnz
-    int64_t*  d_row_ptr   = nullptr;  // row pointers, size rows+1
+    double*   d_values    = nullptr;  // non-zero values, size nnz (CSR)
+    int64_t*  d_col_index = nullptr;  // column indices, size nnz (CSR)
+    int64_t*  d_row_ptr   = nullptr;  // row pointers, size rows+1 (CSR)
+
+    double*   d_values_ell    = nullptr;  // ELL values, size rows * max_row_length
+    int64_t*  d_col_index_ell = nullptr;  // ELL column indices, size rows * max_row_length
+    int64_t   max_row_length = 0;         // ELL padded row length
 
     int64_t rows = 0;
     int64_t cols = 0;
     int64_t nnz  = 0;
 
-    // Returns true if all pointers are non-null (allocated).
     bool is_allocated() const;
 };
 
@@ -147,6 +150,16 @@ void free_device_matrix(DeviceMatrix& d_matrix);
 // Safe to call on null pointers (no-op).
 //
 void free_device_vector(DeviceVector& d_vec);
+
+// =============================================================================
+// allocate_device_matrix_ell — ELL format GPU allocation
+// =============================================================================
+DeviceMatrix allocate_device_matrix_ell(const ELL_SparseMatrix& A);
+
+// =============================================================================
+// free_device_matrix_ell — ELL format GPU deallocation
+// =============================================================================
+void free_device_matrix_ell(const DeviceMatrix& dm);
 
 // =============================================================================
 // CUDA_CHECK macro
