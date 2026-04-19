@@ -136,3 +136,10 @@ void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVec
 } // namespace spmv
 
 #endif // SPMV_GPU_V2_H
+// =============================================================================
+// spmv_gpu_v2_auto — Auto-selecting format SpMV
+// =============================================================================
+// Automatically selects the best kernel (CSR-Adaptive, ELL, or CSR-Tiled)
+// based on matrix properties using select_format().
+void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
+

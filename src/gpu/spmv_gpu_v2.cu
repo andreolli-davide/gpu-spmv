@@ -38,6 +38,7 @@
 #include <algorithm>
 
 #include "gpu_utils.h"
+#include "spmv_selector.h"
 
 namespace spmv {
 
@@ -286,3 +287,28 @@ void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVec
 }
 
 } // namespace spmv
+// =============================================================================
+// spmv_gpu_v2_auto — Auto-selecting format SpMV
+// =============================================================================
+
+void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    FormatSelection sel = select_format(A);
+
+    switch (sel.format) {
+        case SpMVFormat::CSR_ADAPTIVE: {
+            auto meta = compute_adaptive_meta(A);
+            spmv_csr_adaptive(A, x, y, meta);
+            break;
+        }
+        case SpMVFormat::ELL: {
+            auto ell = csr_to_ell(A);
+            spmv_ell(ell, x, y);
+            break;
+        }
+        case SpMVFormat::CSR_TILED:
+        default: {
+            spmv_gpu_v2(A, x, y);
+            break;
+        }
+    }
+}
