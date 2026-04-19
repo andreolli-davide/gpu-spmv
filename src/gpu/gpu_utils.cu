@@ -194,4 +194,39 @@ void free_device_vector(DeviceVector& d_vec) {
     d_vec.size = 0;
 }
 
+// =============================================================================
+// auto_select_block_size — Occupancy optimization based on matrix sparsity
+// =============================================================================
+
+BlockSizeTuning auto_select_block_size(int64_t nnz, int64_t rows, int64_t avg_nnz_per_row) {
+    BlockSizeTuning result = {256, 0, 0, 0.0f};
+
+    // For very sparse matrices (webbase-1M: ~3 nnz/row):
+    // - Small block size reduces idle threads
+    // - 128 threads allows more blocks per SM for better occupancy
+    if (avg_nnz_per_row < 10) {
+        result.block_size = 128;
+    }
+    // For moderate sparsity:
+    // - Medium block size balances parallelism and efficiency
+    else if (avg_nnz_per_row < 100) {
+        result.block_size = 256;
+    }
+    // For denser matrices:
+    // - Larger block size amortizes thread overhead
+    else {
+        result.block_size = 512;
+    }
+
+    // Ampere (SM 8.0) limits:
+    // - Max threads per SM: 1536
+    // - Max blocks per SM: 16
+    // - Max threads per block: 1024 (we use 128-512)
+    result.max_threads = 1536 / result.block_size * result.block_size;
+    result.max_blocks = 16;
+    result.occupancy = static_cast<float>(result.block_size) / 1536.0f;
+
+    return result;
+}
+
 } // namespace spmv

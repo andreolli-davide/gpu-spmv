@@ -188,6 +188,29 @@ void free_device_vector(DeviceVector& d_vec);
 // destruction automatically via RAII.
 //
 
+// =============================================================================
+// Block Size Tuning for GPU Occupancy Optimization
+// =============================================================================
+// Auto-tunes block size (128/256/512) based on matrix sparsity to maximize
+// GPU occupancy on Ampere architecture (SM 8.0).
+//
+// Selection criteria:
+//   - avg_nnz_per_row < 10:  block_size=128  (webbase-like, very sparse)
+//   - avg_nnz_per_row < 100: block_size=256  (moderate sparsity)
+//   - avg_nnz_per_row >= 100: block_size=512 (dense matrices)
+//
+// Based on: Chu et al. '23 "Efficient Algorithm Design of Optimizing SpMV on GPU"
+//
+struct BlockSizeTuning {
+    int block_size;        // Optimal block size: 128, 256, or 512
+    int max_threads;       // Theoretical max threads per SM
+    int max_blocks;        // Max blocks per SM
+    float occupancy;       // Achieved occupancy (0.0-1.0)
+};
+
+// Auto-tune block size based on matrix properties
+BlockSizeTuning auto_select_block_size(int64_t nnz, int64_t rows, int64_t avg_nnz_per_row);
+
 } // namespace spmv
 
 #endif // GPU_UTILS_H

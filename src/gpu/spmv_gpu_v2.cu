@@ -273,4 +273,16 @@ void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
     free_device_vector(d_y);
 }
 
+// =============================================================================
+// spmv_gpu_v2_autotuned — Auto-tuned block size SpMV
+// =============================================================================
+
+void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    const int64_t avg_nnz_per_row = (A.rows > 0) ? (A.nnz / A.rows) : 1;
+
+    BlockSizeTuning tuning = auto_select_block_size(A.nnz, A.rows, avg_nnz_per_row);
+
+    spmv_gpu_v2_custom_smem(A, x, y, tuning.block_size);
+}
+
 } // namespace spmv

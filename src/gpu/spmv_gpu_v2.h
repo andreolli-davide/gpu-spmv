@@ -118,6 +118,21 @@ void spmv_gpu_v2(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
                              DenseVector& y, int shared_kb);
 
+// =============================================================================
+// spmv_gpu_v2_autotuned — Auto-tuned block size SpMV
+// =============================================================================
+// Wrapper that automatically selects optimal block size based on matrix sparsity.
+//
+// Uses auto_select_block_size() to choose between 128/256/512 threads per block,
+// then delegates to spmv_gpu_v2_custom_smem() for the actual computation.
+//
+// @param A   Input matrix in CSR format
+// @param x   Input dense vector
+// @param y   Output dense vector (resized automatically)
+//
+// =============================================================================
+void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
+
 } // namespace spmv
 
 #endif // SPMV_GPU_V2_H
