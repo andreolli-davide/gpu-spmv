@@ -37,6 +37,7 @@
 #include "timer.h"
 #include "matrix_market.h"
 #include "gpu_utils.h"
+#include "spmv_gpu_v1.h"
 
 namespace {
 
@@ -68,21 +69,6 @@ void print_vector(const spmv::DenseVector& v, int64_t max_entries = 8) {
 }
 
 } // anonymous namespace
-
-// =============================================================================
-// spmv_gpu_v1 — GPU SpMV kernel wrapper
-// =============================================================================
-// Wrapper that calls the GPU v1 implementation. This function signature
-// must match what the GPU kernel expects: one thread per row, using CSR data.
-//
-// The function will call the actual GPU kernel once implemented in spmv_gpu_v1.cu
-//
-// Currently this is a stub that copies data to GPU and calls the kernel.
-// Once the GPU implementation exists, this will call into it properly.
-// =============================================================================
-void spmv_gpu_v1(const spmv::SparseMatrix& A,
-                const spmv::DenseVector& x,
-                spmv::DenseVector& y);
 
 // =============================================================================
 // main
@@ -161,48 +147,12 @@ int main(int argc, char* argv[]) {
     // -------------------------------------------------------------------------
     spmv::DenseVector y_gpu(A.rows);
     spmv::GPUTimer t_gpu;
+
     t_gpu.start();
-
-    // Copy data to device
-    spmv::DeviceMatrix d_A = spmv::allocate_device_matrix(A);
-    spmv::DeviceVector d_x = spmv::copy_vector_to_device(x);
-    spmv::DeviceVector d_y;
-    d_y.size = A.rows;
-    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
-
-    // Copy x to device
-    CUDA_CHECK(cudaMemcpy(d_x.d_data, x.data.data(),
-                          x.size * sizeof(double),
-                          cudaMemcpyHostToDevice));
-
-    // Launch GPU kernel - one thread per row
-    const int block_size = 256;
-    const int grid_size = (A.rows + block_size - 1) / block_size;
-
-    // Kernel call will be: spmv_gpu_v1_kernel<<<grid_size, block_size>>>(
-    //     d_A.d_values, d_A.d_col_index, d_A.d_row_ptr,
-    //     d_x.d_data, d_y.d_data, A.rows, A.nnz);
-    // CUDA_CHECK(cudaGetLastError());
-    // cudaStreamSynchronize(0);
-
-    // For now, stub - just zero out the output
-    CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
-
+    spmv::spmv_gpu_v1(A, x, y_gpu);
     t_gpu.stop();
-    CUDA_CHECK(cudaStreamSynchronize(0));
-
-    // Copy result back
-    y_gpu.resize(A.rows);
-    CUDA_CHECK(cudaMemcpy(y_gpu.data.data(), d_y.d_data,
-                          A.rows * sizeof(double),
-                          cudaMemcpyDeviceToHost));
 
     std::cout << "GPU time:   " << t_gpu.elapsed_ms() << " ms\n";
-
-    // Cleanup device memory
-    spmv::free_device_matrix(d_A);
-    spmv::free_device_vector(d_x);
-    spmv::free_device_vector(d_y);
 
     // -------------------------------------------------------------------------
     // Step 5 — Correctness verification (--verify flag)
@@ -213,11 +163,7 @@ int main(int argc, char* argv[]) {
         std::cout << "=======================================================\n\n";
 
         // Compute infinity norm of (y_gpu - y_cpu)
-        double max_err = 0.0;
-        for (int64_t i = 0; i < A.rows; ++i) {
-            double err = std::fabs(y_gpu.data[i] - y_cpu.data[i]);
-            if (err > max_err) max_err = err;
-        }
+        double max_err = spmv::infnorm(y_gpu, y_cpu);
 
         std::cout << "Infinity norm |y_gpu - y_cpu|_inf: " << max_err << "\n";
         std::cout << "Tolerance: 1e-10\n\n";

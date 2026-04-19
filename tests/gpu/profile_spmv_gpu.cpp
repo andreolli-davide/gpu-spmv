@@ -83,6 +83,7 @@ struct ProfilingMetrics {
 // =============================================================================
 // NVTX Range helpers
 // =============================================================================
+#ifdef USE_NVTX
 class NVTXRange {
     const char* name_;
 public:
@@ -91,12 +92,19 @@ public:
         eventAttrib.version = NVTX_VERSION;
         eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
         eventAttrib.colorType = NVTX_COLOR_ARGB;
-        eventAttrib.color = 0xFF00FF00;  // Green
+        eventAttrib.color = 0xFF00FF00;
         eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
         eventAttrib.message.ascii = name_;
         nvtxMarkEx(&eventAttrib);
     }
 };
+#else
+class NVTXRange {
+    const char* name_;
+public:
+    explicit NVTXRange(const char* name) : name_(name) {}
+};
+#endif
 
 // =============================================================================
 // print_metrics — print metrics to stdout
@@ -152,43 +160,21 @@ ProfilingMetrics run_v1_kernel(const spmv::SparseMatrix& A,
     m.cols = A.cols;
     m.nnz = A.nnz;
 
-    // Allocate device memory
-    spmv::DeviceMatrix d_A = spmv::allocate_device_matrix(A);
-    spmv::DeviceVector d_x = spmv::copy_vector_to_device(x);
-    spmv::DeviceVector d_y;
-    d_y.size = A.rows;
-    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
-    CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
-
-    // Kernel configuration: one thread per row
-    constexpr int block_dim = 256;
-    const int grid_dim = static_cast<int>((A.rows + block_dim - 1) / block_dim);
-
     // Create CUDA events for timing
     cudaEvent_t start_event, stop_event;
     CUDA_CHECK(cudaEventCreate(&start_event));
     CUDA_CHECK(cudaEventCreate(&stop_event));
 
-    // Warm-up run (not timed)
-    {
-        NVTXRange range("spmv_gpu_v1_warmup");
-        spmv::spmv_gpu_v1_kernel<<<grid_dim, block_dim>>>(
-            d_A.d_values, d_A.d_col_index, d_A.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
-        CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaStreamSynchronize(0));
-    }
+    spmv::DenseVector y;
+    y.resize(A.rows);
 
     // Timed run with NVTX marker
     {
         NVTXRange range("spmv_gpu_v1");
         CUDA_CHECK(cudaEventRecord(start_event, 0));
-        spmv::spmv_gpu_v1_kernel<<<grid_dim, block_dim>>>(
-            d_A.d_values, d_A.d_col_index, d_A.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
-        CUDA_CHECK(cudaGetLastError());
+        spmv::spmv_gpu_v1(A, x, y);
         CUDA_CHECK(cudaEventRecord(stop_event, 0));
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        CUDA_CHECK(cudaEventSynchronize(stop_event));
     }
 
     // Get elapsed time
@@ -200,9 +186,6 @@ ProfilingMetrics run_v1_kernel(const spmv::SparseMatrix& A,
     // Cleanup
     CUDA_CHECK(cudaEventDestroy(start_event));
     CUDA_CHECK(cudaEventDestroy(stop_event));
-    spmv::free_device_matrix(d_A);
-    spmv::free_device_vector(d_x);
-    spmv::free_device_vector(d_y);
 
     return m;
 }
@@ -220,44 +203,21 @@ ProfilingMetrics run_v2_kernel(const spmv::SparseMatrix& A,
     m.cols = A.cols;
     m.nnz = A.nnz;
 
-    // Allocate device memory
-    spmv::DeviceMatrix d_A = spmv::allocate_device_matrix(A);
-    spmv::DeviceVector d_x = spmv::copy_vector_to_device(x);
-    spmv::DeviceVector d_y;
-    d_y.size = A.rows;
-    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
-    CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
-
-    // Kernel configuration
-    constexpr int block_dim = 256;
-    constexpr int shared_mem_bytes = 32 * 1024;  // 32 KB
-    const int grid_dim = static_cast<int>((A.rows + block_dim - 1) / block_dim);
-
     // Create CUDA events for timing
     cudaEvent_t start_event, stop_event;
     CUDA_CHECK(cudaEventCreate(&start_event));
     CUDA_CHECK(cudaEventCreate(&stop_event));
 
-    // Warm-up run (not timed)
-    {
-        NVTXRange range("spmv_gpu_v2_warmup");
-        spmv::spmv_gpu_v2_kernel<4096><<<grid_dim, block_dim, shared_mem_bytes>>>(
-            d_A.d_values, d_A.d_col_index, d_A.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
-        CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaStreamSynchronize(0));
-    }
+    spmv::DenseVector y;
+    y.resize(A.rows);
 
     // Timed run with NVTX marker
     {
         NVTXRange range("spmv_gpu_v2");
         CUDA_CHECK(cudaEventRecord(start_event, 0));
-        spmv::spmv_gpu_v2_kernel<4096><<<grid_dim, block_dim, shared_mem_bytes>>>(
-            d_A.d_values, d_A.d_col_index, d_A.d_row_ptr,
-            d_x.d_data, d_y.d_data, A.rows);
-        CUDA_CHECK(cudaGetLastError());
+        spmv::spmv_gpu_v2(A, x, y);
         CUDA_CHECK(cudaEventRecord(stop_event, 0));
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        CUDA_CHECK(cudaEventSynchronize(stop_event));
     }
 
     // Get elapsed time
@@ -269,9 +229,6 @@ ProfilingMetrics run_v2_kernel(const spmv::SparseMatrix& A,
     // Cleanup
     CUDA_CHECK(cudaEventDestroy(start_event));
     CUDA_CHECK(cudaEventDestroy(stop_event));
-    spmv::free_device_matrix(d_A);
-    spmv::free_device_vector(d_x);
-    spmv::free_device_vector(d_y);
 
     return m;
 }
