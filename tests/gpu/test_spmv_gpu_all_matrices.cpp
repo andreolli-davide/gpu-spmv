@@ -45,8 +45,7 @@
 #include "timer.h"
 #include "matrix_market.h"
 #include "gpu_utils.h"
-#include "spmv_gpu_v1.cu"
-#include "spmv_gpu_v2.cu"
+
 
 namespace {
 
@@ -143,7 +142,7 @@ MatrixTestResult test_single_matrix(const std::string& matrix_path,
     result.rows = A.rows;
     result.cols = A.cols;
     result.nnz = A.nnz;
-    result.density = compute_density(A.rows, A.cols, A.nnz);
+    result.density = compute_density(A.nnz, A.rows, A.cols);
 
     std::cout << "  Matrix: " << A.rows << " × " << A.cols
               << ", nnz = " << A.nnz
