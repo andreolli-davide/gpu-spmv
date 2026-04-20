@@ -87,4 +87,36 @@ if(CUDAToolkit_FOUND)
             $<TARGET_FILE:benchmark_spmv_gpu>
             ${CMAKE_BINARY_DIR}/benchmark_spmv_gpu
     )
+
+    # -----------------------------------------------------------------------------
+    # Persistent buffer correctness test
+    # -----------------------------------------------------------------------------
+    add_executable(test_persistent_buffer
+        gpu/test_persistent_buffer.cpp
+    )
+
+    target_include_directories(test_persistent_buffer PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/src/common
+        ${PROJECT_SOURCE_DIR}/src/cpu
+        ${PROJECT_SOURCE_DIR}/src/gpu
+    )
+
+    target_link_libraries(test_persistent_buffer PRIVATE
+        common
+        spmv_cpu
+        gpu_lib
+    )
+
+    target_compile_options(test_persistent_buffer PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:
+            --expt-relaxed-constexpr
+        >
+    )
+
+    add_custom_command(TARGET test_persistent_buffer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:test_persistent_buffer>
+            ${CMAKE_BINARY_DIR}/test_persistent_buffer
+    )
 endif()
