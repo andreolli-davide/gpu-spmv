@@ -15,10 +15,14 @@ set(CMAKE_CUDA_FLAGS_DEBUG "-g -G")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O3")
 
 # GPU library — compiled from .cu source files
-# Contains GPU SpMV kernels (v1, v2) and memory utility functions
+# Contains GPU SpMV kernels (v1, v2, ELL, CSR-Adaptive) and memory utility functions
 add_library(gpu_lib STATIC
     spmv_gpu_v1.cu
     spmv_gpu_v2.cu
+    spmv_ell.cu
+    spmv_selector.cpp
+    spmv_csr_adaptive.cu
+    gpu_persistent_buffers.cu
     gpu_utils.cu
 )
 

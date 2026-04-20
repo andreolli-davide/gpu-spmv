@@ -32,6 +32,10 @@
 // Verification:
 //   Same as v1 — use --verify flag and infinity-norm < 1e-10 tolerance.
 //
+// Persistent Buffer Support:
+//   For repeated SpMV calls with the same matrix, see gpu_persistent_buffers.h
+//   and spmv_gpu_v2_persistent() to eliminate per-call cudaMalloc/cudaFree overhead.
+//
 // =============================================================================
 
 #ifndef SPMV_GPU_V2_H
@@ -71,7 +75,8 @@ __global__ void spmv_gpu_v2_kernel(const double* __restrict__ d_values,
                                    const int64_t* __restrict__ d_row_ptr,
                                    const double* __restrict__ d_x,
                                    double* __restrict__ d_y,
-                                   int64_t rows);
+                                   int64_t rows,
+                                    int64_t x_size);
 
 // =============================================================================
 // spmv_gpu_v2 — GPU SpMV wrapper with shared memory tiling for x
@@ -113,6 +118,28 @@ void spmv_gpu_v2(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 // =============================================================================
 void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
                              DenseVector& y, int shared_kb);
+
+// =============================================================================
+// spmv_gpu_v2_autotuned — Auto-tuned block size SpMV
+// =============================================================================
+// Wrapper that automatically selects optimal block size based on matrix sparsity.
+//
+// Uses auto_select_block_size() to choose between 128/256/512 threads per block,
+// then delegates to spmv_gpu_v2_custom_smem() for the actual computation.
+//
+// @param A   Input matrix in CSR format
+// @param x   Input dense vector
+// @param y   Output dense vector (resized automatically)
+//
+// =============================================================================
+void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
+
+// =============================================================================
+// spmv_gpu_v2_auto — Auto-selecting format SpMV
+// =============================================================================
+// Automatically selects the best kernel (CSR-Adaptive, ELL, or CSR-Tiled)
+// based on matrix properties using select_format().
+void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 
 } // namespace spmv
 

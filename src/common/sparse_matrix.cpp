@@ -7,6 +7,7 @@
 // =============================================================================
 
 #include "sparse_matrix.h"
+#include <algorithm>
 
 namespace spmv {
 
@@ -74,6 +75,53 @@ void DenseVector::resize(int64_t s) {
 
 int64_t DenseVector::memory_bytes() const {
     return size * sizeof(double) + sizeof(int64_t);
+}
+
+// =============================================================================
+// ELL_SparseMatrix (ELLPACK)
+// =============================================================================
+
+ELL_SparseMatrix::ELL_SparseMatrix(int64_t r, int64_t c, int64_t max_len)
+    : rows(r), cols(c), max_row_length(max_len) {}
+
+void ELL_SparseMatrix::allocate() {
+    const int64_t total = rows * max_row_length;
+    values.resize(total);
+    col_index.resize(total, -1);
+}
+
+int64_t ELL_SparseMatrix::memory_bytes() const {
+    return (values.size() * sizeof(double)) + (col_index.size() * sizeof(int64_t));
+}
+
+ELL_SparseMatrix csr_to_ell(const SparseMatrix& csr) {
+    int64_t max_len = 0;
+    for (int64_t i = 0; i < csr.rows; ++i) {
+        const int64_t len = csr.row_ptr[i + 1] - csr.row_ptr[i];
+        max_len = std::max(max_len, len);
+    }
+
+    ELL_SparseMatrix ell(csr.rows, csr.cols, max_len);
+    ell.nnz = csr.nnz;
+    ell.allocate();
+
+    for (int64_t i = 0; i < csr.rows; ++i) {
+        const int64_t row_start = csr.row_ptr[i];
+        const int64_t row_len = csr.row_ptr[i + 1] - row_start;
+        const int64_t ell_row_start = i * max_len;
+
+        for (int64_t j = 0; j < max_len; ++j) {
+            if (j < row_len) {
+                ell.values[ell_row_start + j] = csr.values[row_start + j];
+                ell.col_index[ell_row_start + j] = csr.col_index[row_start + j];
+            } else {
+                ell.values[ell_row_start + j] = 0.0;
+                ell.col_index[ell_row_start + j] = -1;
+            }
+        }
+    }
+
+    return ell;
 }
 
 } // namespace spmv

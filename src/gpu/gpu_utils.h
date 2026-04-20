@@ -26,9 +26,7 @@
 
 #include <cstdint>   // int64_t
 #include <cstdio>    // fprintf, stderr
-#ifdef __CUDACC__
-#include <cuda_runtime.h>  // CUDA runtime API
-#endif
+#include <cuda_runtime_api.h>  // CUDA runtime API (host-visible)
 
 #include "../common/sparse_matrix.h"  // SparseMatrix, DenseVector
 
@@ -42,15 +40,18 @@ namespace spmv {
 // Use free_device_matrix() to release.
 //
 struct DeviceMatrix {
-    double*   d_values    = nullptr;  // non-zero values, size nnz
-    int64_t*  d_col_index = nullptr;  // column indices, size nnz
-    int64_t*  d_row_ptr   = nullptr;  // row pointers, size rows+1
+    double*   d_values    = nullptr;  // non-zero values, size nnz (CSR)
+    int64_t*  d_col_index = nullptr;  // column indices, size nnz (CSR)
+    int64_t*  d_row_ptr   = nullptr;  // row pointers, size rows+1 (CSR)
+
+    double*   d_values_ell    = nullptr;  // ELL values, size rows * max_row_length
+    int64_t*  d_col_index_ell = nullptr;  // ELL column indices, size rows * max_row_length
+    int64_t   max_row_length = 0;         // ELL padded row length
 
     int64_t rows = 0;
     int64_t cols = 0;
     int64_t nnz  = 0;
 
-    // Returns true if all pointers are non-null (allocated).
     bool is_allocated() const;
 };
 
@@ -149,6 +150,16 @@ void free_device_matrix(DeviceMatrix& d_matrix);
 void free_device_vector(DeviceVector& d_vec);
 
 // =============================================================================
+// allocate_device_matrix_ell — ELL format GPU allocation
+// =============================================================================
+DeviceMatrix allocate_device_matrix_ell(const ELL_SparseMatrix& A);
+
+// =============================================================================
+// free_device_matrix_ell — ELL format GPU deallocation
+// =============================================================================
+void free_device_matrix_ell(const DeviceMatrix& dm);
+
+// =============================================================================
 // CUDA_CHECK macro
 // =============================================================================
 // Error checking wrapper for synchronous CUDA calls.
@@ -187,6 +198,29 @@ void free_device_vector(DeviceVector& d_vec);
 // Note: GPUTimer is defined in timer.h and handles CUDA event creation/
 // destruction automatically via RAII.
 //
+
+// =============================================================================
+// Block Size Tuning for GPU Occupancy Optimization
+// =============================================================================
+// Auto-tunes block size (128/256/512) based on matrix sparsity to maximize
+// GPU occupancy on Ampere architecture (SM 8.0).
+//
+// Selection criteria:
+//   - avg_nnz_per_row < 10:  block_size=128  (webbase-like, very sparse)
+//   - avg_nnz_per_row < 100: block_size=256  (moderate sparsity)
+//   - avg_nnz_per_row >= 100: block_size=512 (dense matrices)
+//
+// Based on: Chu et al. '23 "Efficient Algorithm Design of Optimizing SpMV on GPU"
+//
+struct BlockSizeTuning {
+    int block_size;        // Optimal block size: 128, 256, or 512
+    int max_threads;       // Theoretical max threads per SM
+    int max_blocks;        // Max blocks per SM
+    float occupancy;       // Achieved occupancy (0.0-1.0)
+};
+
+// Auto-tune block size based on matrix properties
+BlockSizeTuning auto_select_block_size(int64_t nnz, int64_t rows, int64_t avg_nnz_per_row);
 
 } // namespace spmv
 

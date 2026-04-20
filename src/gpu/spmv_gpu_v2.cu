@@ -26,6 +26,10 @@
 // Thread Mapping:
 //   thread_id = block_idx * block_dim + thread_idx (one thread per row)
 //
+// Persistent Buffer Support:
+//   For repeated SpMV calls with the same matrix, see gpu_persistent_buffers.h
+//   and spmv_gpu_v2_persistent() to eliminate per-call cudaMalloc/cudaFree overhead.
+//
 // =============================================================================
 
 #include <cuda_runtime.h>
@@ -34,6 +38,9 @@
 #include <algorithm>
 
 #include "gpu_utils.h"
+#include "spmv_ell.h"
+#include "spmv_csr_adaptive.h"
+#include "spmv_selector.h"
 
 namespace spmv {
 
@@ -267,6 +274,44 @@ void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
     free_device_matrix(d_matrix);
     free_device_vector(d_x);
     free_device_vector(d_y);
+}
+
+// =============================================================================
+// spmv_gpu_v2_autotuned — Auto-tuned block size SpMV
+// =============================================================================
+
+void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    const int64_t avg_nnz_per_row = (A.rows > 0) ? (A.nnz / A.rows) : 1;
+
+    BlockSizeTuning tuning = auto_select_block_size(A.nnz, A.rows, avg_nnz_per_row);
+
+    spmv_gpu_v2_custom_smem(A, x, y, tuning.block_size);
+}
+
+// =============================================================================
+// spmv_gpu_v2_auto — Auto-selecting format SpMV
+// =============================================================================
+
+void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    FormatSelection sel = select_format(A);
+
+    switch (sel.format) {
+        case SpMVFormat::CSR_ADAPTIVE: {
+            auto meta = compute_adaptive_meta(A);
+            spmv_csr_adaptive(A, x, y, meta);
+            break;
+        }
+        case SpMVFormat::ELL: {
+            auto ell = csr_to_ell(A);
+            spmv_ell(ell, x, y);
+            break;
+        }
+        case SpMVFormat::CSR_TILED:
+        default: {
+            spmv_gpu_v2(A, x, y);
+            break;
+        }
+    }
 }
 
 } // namespace spmv

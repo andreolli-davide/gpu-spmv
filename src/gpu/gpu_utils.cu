@@ -194,4 +194,70 @@ void free_device_vector(DeviceVector& d_vec) {
     d_vec.size = 0;
 }
 
+// =============================================================================
+// allocate_device_matrix_ell — ELL format GPU allocation
+// =============================================================================
+
+DeviceMatrix allocate_device_matrix_ell(const ELL_SparseMatrix& A) {
+    DeviceMatrix dm;
+    dm.rows = A.rows;
+    dm.nnz = A.nnz;
+    dm.max_row_length = A.max_row_length;
+
+    const size_t values_size = A.rows * A.max_row_length * sizeof(double);
+    const size_t col_size = A.rows * A.max_row_length * sizeof(int64_t);
+
+    CUDA_CHECK(cudaMalloc(&dm.d_values_ell, values_size));
+    CUDA_CHECK(cudaMalloc(&dm.d_col_index_ell, col_size));
+
+    CUDA_CHECK(cudaMemcpy(dm.d_values_ell, A.values.data(), values_size, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(dm.d_col_index_ell, A.col_index.data(), col_size, cudaMemcpyHostToDevice));
+
+    return dm;
+}
+
+// =============================================================================
+// free_device_matrix_ell — ELL format GPU deallocation
+// =============================================================================
+
+void free_device_matrix_ell(const DeviceMatrix& dm) {
+    if (dm.d_values_ell) cudaFree(dm.d_values_ell);
+    if (dm.d_col_index_ell) cudaFree(dm.d_col_index_ell);
+}
+
+// =============================================================================
+// auto_select_block_size — Occupancy optimization based on matrix sparsity
+// =============================================================================
+
+BlockSizeTuning auto_select_block_size(int64_t nnz, int64_t rows, int64_t avg_nnz_per_row) {
+    BlockSizeTuning result = {256, 0, 0, 0.0f};
+
+    // For very sparse matrices (webbase-1M: ~3 nnz/row):
+    // - Small block size reduces idle threads
+    // - 128 threads allows more blocks per SM for better occupancy
+    if (avg_nnz_per_row < 10) {
+        result.block_size = 128;
+    }
+    // For moderate sparsity:
+    // - Medium block size balances parallelism and efficiency
+    else if (avg_nnz_per_row < 100) {
+        result.block_size = 256;
+    }
+    // For denser matrices:
+    // - Larger block size amortizes thread overhead
+    else {
+        result.block_size = 512;
+    }
+
+    // Ampere (SM 8.0) limits:
+    // - Max threads per SM: 1536
+    // - Max blocks per SM: 16
+    // - Max threads per block: 1024 (we use 128-512)
+    result.max_threads = 1536 / result.block_size * result.block_size;
+    result.max_blocks = 16;
+    result.occupancy = static_cast<float>(result.block_size) / 1536.0f;
+
+    return result;
+}
+
 } // namespace spmv
