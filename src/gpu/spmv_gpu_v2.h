@@ -42,6 +42,7 @@
 #define SPMV_GPU_V2_H
 
 #include <cstdint>  // int64_t
+#include <cuda_runtime.h>  // cudaStream_t
 
 #include "sparse_matrix.h"  // SparseMatrix, DenseVector
 #include "timer.h"          // GPUTimer
@@ -140,6 +141,46 @@ void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVec
 // Automatically selects the best kernel (CSR-Adaptive, ELL, or CSR-Tiled)
 // based on matrix properties using select_format().
 void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
+
+// =============================================================================
+// spmv_gpu_v2_async — Async memory transfer SpMV via CUDA streams
+// =============================================================================
+// Uses cudaStream_t to overlap H2D, kernel, and D2H operations.
+//
+// @param A       Input matrix in CSR format
+// @param x       Input dense vector
+// @param y       Output dense vector (resized automatically)
+// @param stream  CUDA stream for asynchronous execution
+//
+// =============================================================================
+void spmv_gpu_v2_async(const SparseMatrix& A, const DenseVector& x,
+                       DenseVector& y, cudaStream_t stream);
+
+// =============================================================================
+// spmv_gpu_v2_reg_tiled — Register-tiled kernel for dense rows
+// =============================================================================
+// Wrapper for register-tiled kernel that uses registers to batch process
+// dense rows for improved cache behavior.
+//
+// @param A  Input matrix in CSR format
+// @param x  Input dense vector
+// @param y  Output dense vector (resized automatically)
+//
+// =============================================================================
+void spmv_gpu_v2_reg_tiled(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
+
+// =============================================================================
+// spmv_gpu_v2_warp — Warp-level reduction kernel
+// =============================================================================
+// Wrapper for warp-level reduction kernel using __shfl_down_sync.
+// Efficient for matrices with long rows (high nnz per row).
+//
+// @param A  Input matrix in CSR format
+// @param x  Input dense vector
+// @param y  Output dense vector (resized automatically)
+//
+// =============================================================================
+void spmv_gpu_v2_warp(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 
 } // namespace spmv
 

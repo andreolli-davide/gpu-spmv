@@ -14,6 +14,9 @@
 // Usage
 // -----
 //   ./benchmark_spmv_gpu --matrix <path> [--runs N] [--output <csv_path>]
+//   ./benchmark_spmv_gpu --matrix <path> --persistent
+//   ./benchmark_spmv_gpu --matrix <path> --autotune
+//   ./benchmark_spmv_gpu --matrix <path> --auto-format
 //   ./benchmark_spmv_gpu --matrix ../data/matrix.mtx --runs 5
 //   ./benchmark_spmv_gpu --matrix ../data/ --runs 5  (batch mode, all .mtx files)
 //
@@ -48,6 +51,8 @@
 
 #include "spmv_cpu.h"
 #include "spmv_gpu_v2.h"
+#include "gpu_persistent_buffers.h"
+#include "spmv_selector.h"
 #include "timer.h"
 #include "matrix_market.h"
 #include "gpu_utils.h"
@@ -61,16 +66,30 @@ constexpr int DEFAULT_RUNS = 5;
 constexpr const char* DEFAULT_OUTPUT = "results/benchmark_results.csv";
 
 // =============================================================================
+// Benchmark mode
+// =============================================================================
+enum class BenchmarkMode {
+    DEFAULT,
+    PERSISTENT,
+    AUTOTUNED,
+    AUTO_FORMAT
+};
+
+// =============================================================================
 // print_usage
 // =============================================================================
 void print_usage(const char* prog) {
-    std::printf("Usage: %s --matrix <path> [--runs N] [--output <csv_path>]\n", prog);
+    std::printf("Usage: %s --matrix <path> [options]\n", prog);
     std::printf("  --matrix <path>   Path to Matrix Market file (.mtx) or directory\n");
     std::printf("  --runs N          Number of runs per matrix (default: %d)\n", DEFAULT_RUNS);
     std::printf("  --output <path>   Output CSV file (default: %s)\n", DEFAULT_OUTPUT);
+    std::printf("  --persistent      Use persistent buffer mode (avoids per-call malloc/free)\n");
+    std::printf("  --autotune        Use auto-tuned block size\n");
+    std::printf("  --auto-format     Use automatic format selection (CSR/ELL/CSR_ADAPTIVE)\n");
     std::printf("\nExamples:\n");
     std::printf("  %s --matrix ../data/bcsstk01.mtx --runs 5\n", prog);
     std::printf("  %s --matrix ../data/ --runs 10 --output results/my_bench.csv\n", prog);
+    std::printf("  %s --matrix ../data/ --persistent --autotune --auto-format\n", prog);
 }
 
 // =============================================================================
@@ -80,6 +99,7 @@ struct Args {
     std::string matrix_path;
     int runs = DEFAULT_RUNS;
     std::string output_path = DEFAULT_OUTPUT;
+    BenchmarkMode mode = BenchmarkMode::DEFAULT;
 };
 
 Args parse_args(int argc, char* argv[]) {
@@ -92,6 +112,12 @@ Args parse_args(int argc, char* argv[]) {
             args.runs = std::atoi(argv[++i]);
         } else if (arg == "--output" && i + 1 < argc) {
             args.output_path = argv[++i];
+        } else if (arg == "--persistent") {
+            args.mode = BenchmarkMode::PERSISTENT;
+        } else if (arg == "--autotune") {
+            args.mode = BenchmarkMode::AUTOTUNED;
+        } else if (arg == "--auto-format") {
+            args.mode = BenchmarkMode::AUTO_FORMAT;
         } else if (arg == "--help" || arg == "-h") {
             print_usage(argv[0]);
             std::exit(0);
@@ -112,7 +138,7 @@ void fill_random(spmv::DenseVector& v, double lo = -1.0, double hi = 1.0) {
 }
 
 // =============================================================================
-// benchmark_spmv — run SpMV multiple times and collect statistics
+// BenchmarkResult — timing and performance metrics
 // =============================================================================
 struct BenchmarkResult {
     std::string matrix_name;
@@ -126,65 +152,45 @@ struct BenchmarkResult {
     double gb_s = 0.0;
 };
 
-BenchmarkResult benchmark_spmv(const spmv::SparseMatrix& A,
-                              const std::string& matrix_name,
-                              int runs) {
-    // Allocate input and output vectors
+// =============================================================================
+// benchmark_spmv_default — standard spmv_gpu_v2
+// =============================================================================
+BenchmarkResult benchmark_spmv_default(const spmv::SparseMatrix& A,
+                                       const std::string& matrix_name,
+                                       int runs) {
     spmv::DenseVector x(A.cols);
     spmv::DenseVector y(A.rows);
     fill_random(x, -1.0, 1.0);
 
-    // Timing setup
     std::vector<double> times;
     times.reserve(runs);
 
-    // Warm-up run (not counted)
     spmv::DenseVector temp_y(A.rows);
-
-    // Warm-up call
     spmv::spmv_gpu_v2(A, x, temp_y);
     CUDA_CHECK(cudaStreamSynchronize(0));
 
-    // Benchmark runs
     for (int r = 0; r < runs; ++r) {
-        // Reset output vector
         temp_y.resize(A.rows);
         std::fill(temp_y.data.begin(), temp_y.data.end(), 0.0);
 
-        // Create GPU timer for accurate kernel timing
         spmv::GPUTimer timer;
         timer.start();
-
-        // Call the wrapper function
         spmv::spmv_gpu_v2(A, x, temp_y);
-
         CUDA_CHECK(cudaGetLastError());
         timer.stop();
         CUDA_CHECK(cudaStreamSynchronize(0));
-
-        double elapsed_ms = timer.elapsed_ms();
-        times.push_back(elapsed_ms);
+        times.push_back(timer.elapsed_ms());
     }
 
-    // Copy result back (for correctness verification, not timing)
     y = temp_y;
 
-    // Compute statistics
-    double sum = 0.0;
-    double min_time = times[0];
-    double max_time = times[0];
+    double sum = 0.0, min_time = times[0], max_time = times[0];
     for (double t : times) {
         sum += t;
         min_time = std::min(min_time, t);
         max_time = std::max(max_time, t);
     }
     double avg_time = sum / runs;
-
-    // Compute GFLOP/s and memory bandwidth
-    // GFLOP/s = (2 * nnz) / (t_kernel * 1e9) where t_kernel is in seconds
-    // B_eff = (16 * nnz) / t_ms [GB/s] where t_ms is in milliseconds
-    double gflops = (2.0 * static_cast<double>(A.nnz)) / (avg_time * 1e-3 * 1e9);
-    double gb_s = (16.0 * static_cast<double>(A.nnz)) / avg_time;
 
     BenchmarkResult result;
     result.matrix_name = matrix_name;
@@ -194,9 +200,184 @@ BenchmarkResult benchmark_spmv(const spmv::SparseMatrix& A,
     result.time_avg_ms = avg_time;
     result.time_min_ms = min_time;
     result.time_max_ms = max_time;
-    result.gflops = gflops;
-    result.gb_s = gb_s;
+    result.gflops = (2.0 * static_cast<double>(A.nnz)) / (avg_time * 1e-3 * 1e9);
+    result.gb_s = (16.0 * static_cast<double>(A.nnz)) / avg_time;
+    return result;
+}
 
+// =============================================================================
+// benchmark_spmv_persistent — uses persistent buffers
+// =============================================================================
+BenchmarkResult benchmark_spmv_persistent(const spmv::SparseMatrix& A,
+                                         const std::string& matrix_name,
+                                         int runs) {
+    spmv::DenseVector x(A.cols);
+    spmv::DenseVector y(A.rows);
+    fill_random(x, -1.0, 1.0);
+
+    spmv::PersistentBufferManager buf;
+    buf.upload_matrix(A);
+
+    std::vector<double> times;
+    times.reserve(runs);
+
+    spmv::DenseVector temp_y(A.rows);
+    buf.upload_vector_x(x);
+    spmv::spmv_gpu_v2_persistent(buf, x, temp_y);
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    for (int r = 0; r < runs; ++r) {
+        buf.upload_vector_x(x);
+        temp_y.resize(A.rows);
+        std::fill(temp_y.data.begin(), temp_y.data.end(), 0.0);
+
+        spmv::GPUTimer timer;
+        timer.start();
+        spmv::spmv_gpu_v2_persistent(buf, x, temp_y);
+        CUDA_CHECK(cudaGetLastError());
+        timer.stop();
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        times.push_back(timer.elapsed_ms());
+    }
+
+    buf.download_vector_y(y);
+
+    double sum = 0.0, min_time = times[0], max_time = times[0];
+    for (double t : times) {
+        sum += t;
+        min_time = std::min(min_time, t);
+        max_time = std::max(max_time, t);
+    }
+    double avg_time = sum / runs;
+
+    BenchmarkResult result;
+    result.matrix_name = matrix_name;
+    result.rows = A.rows;
+    result.cols = A.cols;
+    result.nnz = A.nnz;
+    result.time_avg_ms = avg_time;
+    result.time_min_ms = min_time;
+    result.time_max_ms = max_time;
+    result.gflops = (2.0 * static_cast<double>(A.nnz)) / (avg_time * 1e-3 * 1e9);
+    result.gb_s = (16.0 * static_cast<double>(A.nnz)) / avg_time;
+    return result;
+}
+
+// =============================================================================
+// benchmark_spmv_autotuned — uses auto-tuned block size
+// =============================================================================
+BenchmarkResult benchmark_spmv_autotuned(const spmv::SparseMatrix& A,
+                                        const std::string& matrix_name,
+                                        int runs) {
+    spmv::DenseVector x(A.cols);
+    spmv::DenseVector y(A.rows);
+    fill_random(x, -1.0, 1.0);
+
+    int64_t avg_nnz_per_row = (A.rows > 0) ? (A.nnz / A.rows) : 1;
+    spmv::BlockSizeTuning tuning = spmv::auto_select_block_size(A.nnz, A.rows, avg_nnz_per_row);
+
+    std::vector<double> times;
+    times.reserve(runs);
+
+    spmv::DenseVector temp_y(A.rows);
+    spmv::spmv_gpu_v2_autotuned(A, x, temp_y);
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    for (int r = 0; r < runs; ++r) {
+        temp_y.resize(A.rows);
+        std::fill(temp_y.data.begin(), temp_y.data.end(), 0.0);
+
+        spmv::GPUTimer timer;
+        timer.start();
+        spmv::spmv_gpu_v2_autotuned(A, x, temp_y);
+        CUDA_CHECK(cudaGetLastError());
+        timer.stop();
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        times.push_back(timer.elapsed_ms());
+    }
+
+    y = temp_y;
+
+    double sum = 0.0, min_time = times[0], max_time = times[0];
+    for (double t : times) {
+        sum += t;
+        min_time = std::min(min_time, t);
+        max_time = std::max(max_time, t);
+    }
+    double avg_time = sum / runs;
+
+    BenchmarkResult result;
+    result.matrix_name = matrix_name;
+    result.rows = A.rows;
+    result.cols = A.cols;
+    result.nnz = A.nnz;
+    result.time_avg_ms = avg_time;
+    result.time_min_ms = min_time;
+    result.time_max_ms = max_time;
+    result.gflops = (2.0 * static_cast<double>(A.nnz)) / (avg_time * 1e-3 * 1e9);
+    result.gb_s = (16.0 * static_cast<double>(A.nnz)) / avg_time;
+
+    std::cout << "    Selected block size: " << tuning.block_size << "\n";
+    return result;
+}
+
+// =============================================================================
+// benchmark_spmv_auto_format — uses automatic format selection
+// =============================================================================
+BenchmarkResult benchmark_spmv_auto_format(const spmv::SparseMatrix& A,
+                                           const std::string& matrix_name,
+                                           int runs) {
+    spmv::DenseVector x(A.cols);
+    spmv::DenseVector y(A.rows);
+    fill_random(x, -1.0, 1.0);
+
+    std::vector<double> times;
+    times.reserve(runs);
+
+    spmv::DenseVector temp_y(A.rows);
+    spmv::spmv_gpu_v2_auto(A, x, temp_y);
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    for (int r = 0; r < runs; ++r) {
+        temp_y.resize(A.rows);
+        std::fill(temp_y.data.begin(), temp_y.data.end(), 0.0);
+
+        spmv::GPUTimer timer;
+        timer.start();
+        spmv::spmv_gpu_v2_auto(A, x, temp_y);
+        CUDA_CHECK(cudaGetLastError());
+        timer.stop();
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        times.push_back(timer.elapsed_ms());
+    }
+
+    y = temp_y;
+
+    double sum = 0.0, min_time = times[0], max_time = times[0];
+    for (double t : times) {
+        sum += t;
+        min_time = std::min(min_time, t);
+        max_time = std::max(max_time, t);
+    }
+    double avg_time = sum / runs;
+
+    spmv::FormatSelection sel = spmv::select_format(A);
+    const char* fmt_name = "CSR";
+    if (sel.format == spmv::SpMVFormat::ELL) fmt_name = "ELL";
+    else if (sel.format == spmv::SpMVFormat::CSR_ADAPTIVE) fmt_name = "CSR_ADAPTIVE";
+    else if (sel.format == spmv::SpMVFormat::CSR_TILED) fmt_name = "CSR_TILED";
+    std::cout << "    Selected format: " << fmt_name << "\n";
+
+    BenchmarkResult result;
+    result.matrix_name = matrix_name;
+    result.rows = A.rows;
+    result.cols = A.cols;
+    result.nnz = A.nnz;
+    result.time_avg_ms = avg_time;
+    result.time_min_ms = min_time;
+    result.time_max_ms = max_time;
+    result.gflops = (2.0 * static_cast<double>(A.nnz)) / (avg_time * 1e-3 * 1e9);
+    result.gb_s = (16.0 * static_cast<double>(A.nnz)) / avg_time;
     return result;
 }
 
@@ -259,7 +440,6 @@ std::vector<std::string> list_mtx_files(const std::string& dir) {
         struct stat st;
         if (stat(path.c_str(), &st) == 0) {
             if (S_ISDIR(st.st_mode)) {
-                // Recurse into subdirectory
                 auto subfiles = list_mtx_files(path);
                 files.insert(files.end(), subfiles.begin(), subfiles.end());
             } else if (name.size() > 4 &&
@@ -274,6 +454,18 @@ std::vector<std::string> list_mtx_files(const std::string& dir) {
     return files;
 }
 
+// =============================================================================
+// mode_name — human-readable name for benchmark mode
+// =============================================================================
+const char* mode_name(BenchmarkMode mode) {
+    switch (mode) {
+        case BenchmarkMode::PERSISTENT:  return "Persistent Buffers";
+        case BenchmarkMode::AUTOTUNED:    return "Auto-tuned";
+        case BenchmarkMode::AUTO_FORMAT: return "Auto-format";
+        default:                          return "Default";
+    }
+}
+
 }  // anonymous namespace
 
 // =============================================================================
@@ -283,7 +475,6 @@ int main(int argc, char* argv[]) {
     std::ios_base::sync_with_stdio(false);
     std::cout << std::scientific << std::setprecision(3);
 
-    // Parse command line arguments
     Args args = parse_args(argc, argv);
 
     if (args.matrix_path.empty()) {
@@ -301,9 +492,9 @@ int main(int argc, char* argv[]) {
     std::cout << "       GPU SpMV Performance Benchmark\n";
     std::cout << "=======================================================\n";
     std::cout << "Runs per matrix: " << args.runs << "\n";
-    std::cout << "Output file: " << args.output_path << "\n\n";
+    std::cout << "Output file: " << args.output_path << "\n";
+    std::cout << "Mode: " << mode_name(args.mode) << "\n\n";
 
-    // Collect list of matrices to benchmark
     std::vector<std::string> matrix_paths;
     struct stat st;
     if (stat(args.matrix_path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
@@ -319,7 +510,6 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Found " << matrix_paths.size() << " matrix(ices) to benchmark\n\n";
 
-    // Open output CSV file
     std::ofstream csv_out(args.output_path);
     if (!csv_out.is_open()) {
         std::cerr << "Error: Cannot open output file: " << args.output_path << "\n";
@@ -327,13 +517,11 @@ int main(int argc, char* argv[]) {
     }
     write_csv_header(csv_out);
 
-    // Benchmark each matrix
     std::cout << "=======================================================\n";
     std::cout << "              Benchmarking Results\n";
     std::cout << "=======================================================\n\n";
 
     for (const auto& matrix_path : matrix_paths) {
-        // Extract matrix name from path
         std::string matrix_name = matrix_path;
         size_t last_slash = matrix_name.find_last_of('/');
         if (last_slash != std::string::npos) {
@@ -342,7 +530,6 @@ int main(int argc, char* argv[]) {
 
         std::cout << "Benchmarking: " << matrix_name << "\n";
 
-        // Load matrix
         spmv::SparseMatrix A;
         try {
             A = spmv::parse_matrix_market(matrix_path);
@@ -354,13 +541,23 @@ int main(int argc, char* argv[]) {
         std::cout << "  Matrix: " << A.rows << " x " << A.cols
                   << ", nnz = " << A.nnz << "\n";
 
-        // Run benchmark
-        BenchmarkResult result = benchmark_spmv(A, matrix_name, args.runs);
+        BenchmarkResult result;
+        switch (args.mode) {
+            case BenchmarkMode::PERSISTENT:
+                result = benchmark_spmv_persistent(A, matrix_name, args.runs);
+                break;
+            case BenchmarkMode::AUTOTUNED:
+                result = benchmark_spmv_autotuned(A, matrix_name, args.runs);
+                break;
+            case BenchmarkMode::AUTO_FORMAT:
+                result = benchmark_spmv_auto_format(A, matrix_name, args.runs);
+                break;
+            default:
+                result = benchmark_spmv_default(A, matrix_name, args.runs);
+                break;
+        }
 
-        // Write to CSV
         write_csv_row(csv_out, result);
-
-        // Print to console
         print_result(result);
         std::cout << "\n";
     }

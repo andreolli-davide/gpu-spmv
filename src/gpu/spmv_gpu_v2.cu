@@ -314,4 +314,293 @@ void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& 
     }
 }
 
+// =============================================================================
+// spmv_gpu_v2_async — Async memory transfer SpMV via CUDA streams
+// =============================================================================
+// Uses cudaStream_t to overlap host-to-device transfers, kernel execution,
+// and device-to-host transfers.
+//
+// @param A       Input matrix in CSR format
+// @param x       Input dense vector
+// @param y       Output dense vector (resized automatically)
+// @param stream  CUDA stream for asynchronous execution
+//
+// =============================================================================
+
+void spmv_gpu_v2_async(const SparseMatrix& A, const DenseVector& x,
+                       DenseVector& y, cudaStream_t stream) {
+    DeviceMatrix d_matrix = allocate_device_matrix(A);
+
+    DeviceVector d_x;
+    d_x.size = x.size;
+    CUDA_CHECK(cudaMalloc(&d_x.d_data, x.size * sizeof(double)));
+
+    DeviceVector d_y;
+    d_y.size = A.rows;
+    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
+    CUDA_CHECK(cudaMemsetAsync(d_y.d_data, 0, A.rows * sizeof(double), stream));
+
+    CUDA_CHECK(cudaMemcpyAsync(d_x.d_data, x.data.data(),
+                                x.size * sizeof(double),
+                                cudaMemcpyHostToDevice, stream));
+
+    const int grid_dim = static_cast<int>((A.rows + BLOCK_DIM - 1) / BLOCK_DIM);
+    spmv_gpu_v2_kernel<SHARED_ELEMENTS><<<grid_dim, BLOCK_DIM, SHARED_MEM_SIZE, stream>>>(
+        d_matrix.d_values,
+        d_matrix.d_col_index,
+        d_matrix.d_row_ptr,
+        d_x.d_data,
+        d_y.d_data,
+        A.rows,
+        A.cols);
+
+    CUDA_CHECK(cudaGetLastError());
+
+    y.resize(A.rows);
+    CUDA_CHECK(cudaMemcpyAsync(y.data.data(), d_y.d_data,
+                                A.rows * sizeof(double),
+                                cudaMemcpyDeviceToHost, stream));
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    free_device_matrix(d_matrix);
+    free_device_vector(d_x);
+    free_device_vector(d_y);
+}
+
+// =============================================================================
+// spmv_gpu_v2_reg_tiled_kernel — Register-tiled kernel for dense rows
+// =============================================================================
+// Uses registers to hold a window of values/col_indices, improving cache
+// behavior for matrices with dense rows (high nnz per row).
+//
+// For rows with REG_TILE_SIZE or fewer elements, processes sequentially.
+// For longer rows, uses register tiling to improve memory access patterns.
+//
+// @param d_values    CSR values array (size nnz)
+// @param d_col_index CSR column index array (size nnz)
+// @param d_row_ptr   CSR row pointer array (size rows+1)
+// @param d_x         Input vector (size x_size)
+// @param d_y         Output vector (size rows)
+// @param rows        Number of matrix rows
+// @param x_size      Size of input vector (number of columns)
+//
+// =============================================================================
+
+template <int SHARED_ELEMENTS, int REG_TILE_SIZE>
+__global__ void spmv_gpu_v2_reg_tiled_kernel(
+    const double* __restrict__ d_values,
+    const int64_t* __restrict__ d_col_index,
+    const int64_t* __restrict__ d_row_ptr,
+    const double* __restrict__ d_x,
+    double* __restrict__ d_y,
+    int64_t rows,
+    int64_t x_size) {
+
+    extern __shared__ double smem_x[];
+
+    const int64_t row = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    const int64_t block_start = static_cast<int64_t>(blockIdx.x) * SHARED_ELEMENTS;
+    for (int64_t i = threadIdx.x; i < SHARED_ELEMENTS; i += blockDim.x) {
+        const int64_t x_idx = block_start + i;
+        if (x_idx < x_size) {
+            smem_x[i] = __ldg(&d_x[x_idx]);
+        }
+    }
+    __syncthreads();
+
+    const int64_t row_start = d_row_ptr[row];
+    const int64_t row_end   = d_row_ptr[row + 1];
+
+    double sum = 0.0;
+
+    // Process elements in REG_TILE_SIZE batches using registers
+    int64_t j = row_start;
+    const int64_t row_len = row_end - row_start;
+
+    if (row_len <= REG_TILE_SIZE) {
+        // Short rows: sequential access is fine
+        for (int64_t k = 0; k < row_len; ++k) {
+            const int64_t col = d_col_index[j + k];
+            sum += d_values[j + k] * __ldg(&d_x[col]);
+        }
+    } else {
+        // Dense rows: use register tiling
+        // Unroll by REG_TILE_SIZE when possible
+        const int64_t unrolled_end = row_start + (row_len / REG_TILE_SIZE) * REG_TILE_SIZE;
+
+        for (j = row_start; j < unrolled_end; j += REG_TILE_SIZE) {
+            double vals_buf[REG_TILE_SIZE];
+            int64_t cols_buf[REG_TILE_SIZE];
+
+            // Load REG_TILE_SIZE elements into registers
+            #pragma unroll
+            for (int k = 0; k < REG_TILE_SIZE; ++k) {
+                vals_buf[k] = d_values[j + k];
+                cols_buf[k] = d_col_index[j + k];
+            }
+
+            // Process from registers
+            #pragma unroll
+            for (int k = 0; k < REG_TILE_SIZE; ++k) {
+                const int64_t smem_offset = cols_buf[k] - block_start;
+                if (smem_offset >= 0 && smem_offset < SHARED_ELEMENTS) {
+                    sum += vals_buf[k] * smem_x[smem_offset];
+                } else {
+                    sum += vals_buf[k] * __ldg(&d_x[cols_buf[k]]);
+                }
+            }
+        }
+
+        // Handle remaining elements
+        for (int64_t k = 0; j + k < row_end; ++k) {
+            const int64_t col = d_col_index[j + k];
+            sum += d_values[j + k] * __ldg(&d_x[col]);
+        }
+    }
+
+    d_y[row] = sum;
+}
+
+// =============================================================================
+// spmv_gpu_v2_warp_kernel — Warp-level reduction for long rows
+// =============================================================================
+// Uses __shfl_down_sync for efficient intra-warp reduction when rows have
+// many elements. Reduces thread divergence and improves efficiency for
+// dense rows.
+//
+// @param d_values    CSR values array (size nnz)
+// @param d_col_index CSR column index array (size nnz)
+// @param d_row_ptr   CSR row pointer array (size rows+1)
+// @param d_x         Input vector (size x_size)
+// @param d_y         Output vector (size rows)
+// @param rows        Number of matrix rows
+// @param x_size      Size of input vector (number of columns)
+//
+// =============================================================================
+
+template <int SHARED_ELEMENTS>
+__global__ void spmv_gpu_v2_warp_kernel(
+    const double* __restrict__ d_values,
+    const int64_t* __restrict__ d_col_index,
+    const int64_t* __restrict__ d_row_ptr,
+    const double* __restrict__ d_x,
+    double* __restrict__ d_y,
+    int64_t rows,
+    int64_t x_size) {
+
+    extern __shared__ double smem_x[];
+
+    const int64_t row = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    const int64_t block_start = static_cast<int64_t>(blockIdx.x) * SHARED_ELEMENTS;
+    for (int64_t i = threadIdx.x; i < SHARED_ELEMENTS; i += blockDim.x) {
+        const int64_t x_idx = block_start + i;
+        if (x_idx < x_size) {
+            smem_x[i] = __ldg(&d_x[x_idx]);
+        }
+    }
+    __syncthreads();
+
+    const int64_t row_start = d_row_ptr[row];
+    const int64_t row_end   = d_row_ptr[row + 1];
+    const int64_t row_len = row_end - row_start;
+
+    const int lane = threadIdx.x % 32;
+    const int warp_id = threadIdx.x / 32;
+    (void)warp_id;  // unused but kept for clarity
+
+    double sum = 0.0;
+
+    if (row_len <= 32) {
+        // Short rows: sequential
+        for (int64_t j = row_start; j < row_end; ++j) {
+            const int64_t col = d_col_index[j];
+            sum += d_values[j] * __ldg(&d_x[col]);
+        }
+    } else {
+        // Medium rows: strided access within warp (32 threads cooperatively)
+        for (int64_t j = row_start + lane; j < row_end; j += 32) {
+            const int64_t col = d_col_index[j];
+            sum += d_values[j] * __ldg(&d_x[col]);
+        }
+
+        // Warp-level reduction using shuffle
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset /= 2) {
+            sum += __shfl_down_sync(0xffffffff, sum, offset);
+        }
+    }
+
+    if (lane == 0) {
+        d_y[row] = sum;
+    }
+}
+
+// =============================================================================
+// spmv_gpu_v2_reg_tiled — Wrapper for register-tiled kernel
+// =============================================================================
+
+void spmv_gpu_v2_reg_tiled(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    DeviceMatrix d_matrix = allocate_device_matrix(A);
+    DeviceVector d_x = copy_vector_to_device(x);
+    DeviceVector d_y;
+    d_y.size = A.rows;
+    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
+    CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
+
+    constexpr int REG_TILE_SIZE = 8;
+    const int grid_dim = static_cast<int>((A.rows + BLOCK_DIM - 1) / BLOCK_DIM);
+
+    spmv_gpu_v2_reg_tiled_kernel<SHARED_ELEMENTS, REG_TILE_SIZE>
+        <<<grid_dim, BLOCK_DIM, SHARED_MEM_SIZE>>>(
+            d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
+            d_x.d_data, d_y.d_data, A.rows, A.cols);
+
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    y.resize(A.rows);
+    CUDA_CHECK(cudaMemcpy(y.data.data(), d_y.d_data,
+                          A.rows * sizeof(double), cudaMemcpyDeviceToHost));
+
+    free_device_matrix(d_matrix);
+    free_device_vector(d_x);
+    free_device_vector(d_y);
+}
+
+// =============================================================================
+// spmv_gpu_v2_warp — Wrapper for warp-level reduction kernel
+// =============================================================================
+
+void spmv_gpu_v2_warp(const SparseMatrix& A, const DenseVector& x, DenseVector& y) {
+    DeviceMatrix d_matrix = allocate_device_matrix(A);
+    DeviceVector d_x = copy_vector_to_device(x);
+    DeviceVector d_y;
+    d_y.size = A.rows;
+    CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
+    CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
+
+    const int grid_dim = static_cast<int>((A.rows + BLOCK_DIM - 1) / BLOCK_DIM);
+
+    spmv_gpu_v2_warp_kernel<SHARED_ELEMENTS>
+        <<<grid_dim, BLOCK_DIM, SHARED_MEM_SIZE>>>(
+            d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
+            d_x.d_data, d_y.d_data, A.rows, A.cols);
+
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    y.resize(A.rows);
+    CUDA_CHECK(cudaMemcpy(y.data.data(), d_y.d_data,
+                          A.rows * sizeof(double), cudaMemcpyDeviceToHost));
+
+    free_device_matrix(d_matrix);
+    free_device_vector(d_x);
+    free_device_vector(d_y);
+}
+
 } // namespace spmv
