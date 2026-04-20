@@ -1,0 +1,2 @@
+matrix_name,rows,cols,nnz,time_avg_ms,time_min_ms,time_max_ms,gflops,gb_s
+"webbase-1M.mtx",1000005,1000005,3105536,5.677600e+00,5.602816e+00,5.777184e+00,1.093961e+00,8.751687e+06
