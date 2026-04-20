@@ -130,7 +130,7 @@ void spmv_gpu_v2_persistent(PersistentBufferManager& buf,
         buf.vector_x.d_data,
         buf.vector_y.d_data,
         buf.matrix.rows,
-        buf.matrix.rows);
+        buf.matrix.cols);
 
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(0));
