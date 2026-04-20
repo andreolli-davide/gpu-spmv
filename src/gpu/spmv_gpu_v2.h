@@ -75,7 +75,8 @@ __global__ void spmv_gpu_v2_kernel(const double* __restrict__ d_values,
                                    const int64_t* __restrict__ d_row_ptr,
                                    const double* __restrict__ d_x,
                                    double* __restrict__ d_y,
-                                   int64_t rows);
+                                   int64_t rows,
+                                    int64_t x_size);
 
 // =============================================================================
 // spmv_gpu_v2 — GPU SpMV wrapper with shared memory tiling for x
@@ -133,9 +134,6 @@ void spmv_gpu_v2_custom_smem(const SparseMatrix& A, const DenseVector& x,
 // =============================================================================
 void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 
-} // namespace spmv
-
-#endif // SPMV_GPU_V2_H
 // =============================================================================
 // spmv_gpu_v2_auto — Auto-selecting format SpMV
 // =============================================================================
@@ -143,3 +141,6 @@ void spmv_gpu_v2_autotuned(const SparseMatrix& A, const DenseVector& x, DenseVec
 // based on matrix properties using select_format().
 void spmv_gpu_v2_auto(const SparseMatrix& A, const DenseVector& x, DenseVector& y);
 
+} // namespace spmv
+
+#endif // SPMV_GPU_V2_H

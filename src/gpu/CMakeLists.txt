@@ -20,8 +20,9 @@ add_library(gpu_lib STATIC
     spmv_gpu_v1.cu
     spmv_gpu_v2.cu
     spmv_ell.cu
+    spmv_selector.cpp
     spmv_csr_adaptive.cu
-    gpu_persistent_buffers.cpp
+    gpu_persistent_buffers.cu
     gpu_utils.cu
 )
 

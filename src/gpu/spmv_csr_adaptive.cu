@@ -94,19 +94,17 @@ void spmv_csr_adaptive(const SparseMatrix& A, const DenseVector& x, DenseVector&
     CUDA_CHECK(cudaMalloc(&d_y.d_data, A.rows * sizeof(double)));
     CUDA_CHECK(cudaMemset(d_y.d_data, 0, A.rows * sizeof(double)));
 
-    DeviceVector d_row_block_ptr;
-    d_row_block_ptr.size = meta.row_block_ptr.size();
-    CUDA_CHECK(cudaMalloc(&d_row_block_ptr.d_data, meta.row_block_ptr.size() * sizeof(int64_t)));
-    CUDA_CHECK(cudaMemcpy(d_row_block_ptr.d_data, meta.row_block_ptr.data(),
-                         meta.row_block_ptr.size() * sizeof(int64_t), cudaMemcpyHostToDevice));
+    int64_t* d_row_block_ptr = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_row_block_ptr, meta.row_block_ptr.size() * sizeof(int64_t)));
+    CUDA_CHECK(cudaMemcpy(d_row_block_ptr, meta.row_block_ptr.data(),
+                          meta.row_block_ptr.size() * sizeof(int64_t), cudaMemcpyHostToDevice));
 
-    const int warp_size = 32;
     const int grid_dim = static_cast<int>(meta.num_row_blocks);
     constexpr int BLOCK_DIM = 32;
 
-    spmv_csr_adaptive_kernel<warp_size><<<grid_dim, BLOCK_DIM>>>(
+    spmv_csr_adaptive_kernel<32><<<grid_dim, BLOCK_DIM>>>(
         d_matrix.d_values, d_matrix.d_col_index, d_matrix.d_row_ptr,
-        d_row_block_ptr.d_data,
+        d_row_block_ptr,
         d_x.d_data, d_y.d_data, meta.num_row_blocks);
 
     CUDA_CHECK(cudaGetLastError());
@@ -119,7 +117,7 @@ void spmv_csr_adaptive(const SparseMatrix& A, const DenseVector& x, DenseVector&
     free_device_matrix(d_matrix);
     free_device_vector(d_x);
     free_device_vector(d_y);
-    free_device_vector(d_row_block_ptr);
+    CUDA_CHECK(cudaFree(d_row_block_ptr));
 }
 
 } // namespace spmv

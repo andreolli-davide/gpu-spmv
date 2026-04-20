@@ -2,8 +2,10 @@
 #define SPMV_SELECTOR_H
 
 #include "sparse_matrix.h"
-#include "spmv_ell.h"
-#include "spmv_csr_adaptive.h"
+// Forward declarations (avoid CUDA header in C++ files)
+struct ELL_SparseMatrix;
+struct CSRAdaptiveMeta;
+
 
 namespace spmv {
 

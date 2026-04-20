@@ -142,6 +142,9 @@ struct ELL_SparseMatrix {
     int64_t memory_bytes() const;
 };
 
+// Converts a CSR matrix into ELLPACK format.
+ELL_SparseMatrix csr_to_ell(const SparseMatrix& csr);
+
 // =============================================================================
 // DenseVector — flat double array with size tracking
 // =============================================================================

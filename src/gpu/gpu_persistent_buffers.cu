@@ -1,9 +1,10 @@
 // =============================================================================
-// gpu_persistent_buffers.cpp
+// gpu_persistent_buffers.cu
 // =============================================================================
 
 #include "gpu_persistent_buffers.h"
 #include "gpu_utils.h"
+#include "spmv_gpu_v2.h"
 #include <stdexcept>
 
 namespace spmv {
@@ -25,7 +26,6 @@ PersistentBufferManager::PersistentBufferManager(PersistentBufferManager&& other
     , vector_x(other.vector_x)
     , vector_y(other.vector_y)
     , is_initialized(other.is_initialized) {
-    // Reset source to null pointers to prevent double-free
     other.matrix.d_values = nullptr;
     other.matrix.d_col_index = nullptr;
     other.matrix.d_row_ptr = nullptr;
@@ -43,7 +43,6 @@ PersistentBufferManager& PersistentBufferManager::operator=(PersistentBufferMana
         vector_x = other.vector_x;
         vector_y = other.vector_y;
         is_initialized = other.is_initialized;
-        // Reset source
         other.matrix.d_values = nullptr;
         other.matrix.d_col_index = nullptr;
         other.matrix.d_row_ptr = nullptr;
@@ -58,9 +57,8 @@ PersistentBufferManager& PersistentBufferManager::operator=(PersistentBufferMana
 
 void PersistentBufferManager::upload_matrix(const SparseMatrix& A) {
     if (is_initialized) {
-        // Check if dimensions match
         if (matrix.rows == A.rows && matrix.nnz == A.nnz) {
-            return;  // Already initialized with same dimensions
+            return;
         }
         free_device_matrix(matrix);
     }
@@ -116,21 +114,15 @@ void PersistentBufferManager::free_all() {
     }
 }
 
-// =============================================================================
-// spmv_gpu_v2_persistent — SpMV using persistent buffers
-// =============================================================================
-
 void spmv_gpu_v2_persistent(PersistentBufferManager& buf,
-                           const DenseVector& x, DenseVector& y) {
-    // Ensure output is allocated
+                             const DenseVector& x, DenseVector& y) {
+    (void)x;
     buf.allocate_output(buf.matrix.rows);
 
-    // Kernel configuration (same as spmv_gpu_v2)
     constexpr int BLOCK_DIM = 256;
-    constexpr int SHARED_ELEMENTS = (32 * 1024) / sizeof(double);  // 32KB
+    constexpr int SHARED_ELEMENTS = (32 * 1024) / sizeof(double);
     const int grid_dim = static_cast<int>((buf.matrix.rows + BLOCK_DIM - 1) / BLOCK_DIM);
 
-    // Launch kernel directly using buf's device pointers
     spmv_gpu_v2_kernel<SHARED_ELEMENTS><<<grid_dim, BLOCK_DIM, 32 * 1024>>>(
         buf.matrix.d_values,
         buf.matrix.d_col_index,
@@ -138,13 +130,11 @@ void spmv_gpu_v2_persistent(PersistentBufferManager& buf,
         buf.vector_x.d_data,
         buf.vector_y.d_data,
         buf.matrix.rows,
-        buf.matrix.rows  // x_size = rows for square matrices
-    );
+        buf.matrix.rows);
 
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaStreamSynchronize(0));
 
-    // Download result
     buf.download_vector_y(y);
 }
 

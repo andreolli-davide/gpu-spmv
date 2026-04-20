@@ -36,14 +36,69 @@ double CPUTimer::elapsed_ms() const {
 }
 
 // =============================================================================
-// GPUTimer — Phase 1 stub
+// GPUTimer — CUDA event-based GPU timer (Phase 2)
 // =============================================================================
-// Full implementation in Phase 2 with CUDA headers.
-// The stub is intentionally minimal so that:
-//   • The code compiles and links without CUDA installed
-//   • Any accidental use of GPUTimer in Phase 1 produces 0.0 rather than
-//     silent garbage or a crash
-// =============================================================================
+// Uses cudaEvent_t for accurate GPU kernel timing on CUDA streams.
+//
+#if SPMV_CUDA_ENABLED
+
+#include <cuda_runtime.h>
+
+// Helper: check CUDA event error
+static inline const char* cudaEventGetErrorString(cudaError_t err) {
+    return cudaGetErrorString(err);
+}
+
+GPUTimer::GPUTimer() {
+    cudaError_t err_start = cudaEventCreateWithFlags(
+        reinterpret_cast<cudaEvent_t*>(&cuda_start_event),
+        cudaEventDefault);
+    cudaError_t err_stop = cudaEventCreateWithFlags(
+        reinterpret_cast<cudaEvent_t*>(&cuda_stop_event),
+        cudaEventDefault);
+    if (err_start != cudaSuccess || err_stop != cudaSuccess) {
+        cuda_start_event = nullptr;
+        cuda_stop_event = nullptr;
+    }
+}
+
+GPUTimer::~GPUTimer() {
+    if (cuda_start_event) {
+        cudaEventDestroy(reinterpret_cast<cudaEvent_t>(cuda_start_event));
+    }
+    if (cuda_stop_event) {
+        cudaEventDestroy(reinterpret_cast<cudaEvent_t>(cuda_stop_event));
+    }
+}
+
+void GPUTimer::start() {
+    if (cuda_start_event) {
+        cudaEventRecord(reinterpret_cast<cudaEvent_t>(cuda_start_event), 0);
+    }
+}
+
+void GPUTimer::stop() {
+    if (cuda_stop_event) {
+        cudaEventRecord(reinterpret_cast<cudaEvent_t>(cuda_stop_event), 0);
+    }
+}
+
+double GPUTimer::elapsed_ms() const {
+    if (!cuda_start_event || !cuda_stop_event) {
+        return 0.0;
+    }
+    float ms = 0.0f;
+    cudaError_t err = cudaEventElapsedTime(&ms,
+        reinterpret_cast<cudaEvent_t>(cuda_start_event),
+        reinterpret_cast<cudaEvent_t>(cuda_stop_event));
+    if (err != cudaSuccess) {
+        return 0.0f;
+    }
+    return static_cast<double>(ms);
+}
+
+#else // Non-CUDA fallback (Phase 1 stub)
+
 GPUTimer::GPUTimer()  = default;
 GPUTimer::~GPUTimer() = default;
 
@@ -51,5 +106,7 @@ void GPUTimer::start() {}
 void GPUTimer::stop()  {}
 
 double GPUTimer::elapsed_ms() const { return 0.0; }
+
+#endif // SPMV_CUDA_ENABLED
 
 } // namespace spmv
