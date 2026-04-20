@@ -4,6 +4,7 @@
 
 #include "timer.h"
 #include <omp.h>
+#include <cuda_runtime.h>
 
 namespace spmv {
 
@@ -26,9 +27,6 @@ void CPUTimer::start() {
 }
 
 void CPUTimer::stop() {
-    // No-op: elapsed is computed lazily on each elapsed_ms() call.
-    // This is intentional — you can call elapsed_ms() multiple times
-    // to get a running total, or just call it once at the end.
 }
 
 double CPUTimer::elapsed_ms() const {
@@ -36,20 +34,31 @@ double CPUTimer::elapsed_ms() const {
 }
 
 // =============================================================================
-// GPUTimer — Phase 1 stub
+// GPUTimer — CUDA event-based timing
 // =============================================================================
-// Full implementation in Phase 2 with CUDA headers.
-// The stub is intentionally minimal so that:
-//   • The code compiles and links without CUDA installed
-//   • Any accidental use of GPUTimer in Phase 1 produces 0.0 rather than
-//     silent garbage or a crash
-// =============================================================================
-GPUTimer::GPUTimer()  = default;
-GPUTimer::~GPUTimer() = default;
+GPUTimer::GPUTimer() {
+    cudaEventCreate(reinterpret_cast<cudaEvent_t*>(&cuda_start_event));
+    cudaEventCreate(reinterpret_cast<cudaEvent_t*>(&cuda_stop_event));
+}
 
-void GPUTimer::start() {}
-void GPUTimer::stop()  {}
+GPUTimer::~GPUTimer() {
+    if (cuda_start_event) cudaEventDestroy(static_cast<cudaEvent_t>(cuda_start_event));
+    if (cuda_stop_event) cudaEventDestroy(static_cast<cudaEvent_t>(cuda_stop_event));
+}
 
-double GPUTimer::elapsed_ms() const { return 0.0; }
+void GPUTimer::start() {
+    cudaEventRecord(static_cast<cudaEvent_t>(cuda_start_event), 0);
+}
+
+void GPUTimer::stop() {
+    cudaEventRecord(static_cast<cudaEvent_t>(cuda_stop_event), 0);
+}
+
+double GPUTimer::elapsed_ms() const {
+    float ms = 0.0f;
+    cudaEventSynchronize(static_cast<cudaEvent_t>(cuda_stop_event));
+    cudaEventElapsedTime(&ms, static_cast<cudaEvent_t>(cuda_start_event), static_cast<cudaEvent_t>(cuda_stop_event));
+    return static_cast<double>(ms);
+}
 
 } // namespace spmv
