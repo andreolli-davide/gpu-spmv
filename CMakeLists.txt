@@ -29,6 +29,8 @@ if(CUDAToolkit_FOUND)
     message(STATUS "CUDA Toolkit found: ${CUDAToolkit_INCLUDE_DIRS}")
     message(STATUS "CUDA Runtime version: ${CUDAToolkit_VERSION}")
     enable_language(CUDA)
+    # Ampere A30 = sm_80
+    set(CMAKE_CUDA_ARCHITECTURES 80)
 else()
     message(STATUS "CUDA Toolkit not found — GPU targets will be skipped")
 endif()

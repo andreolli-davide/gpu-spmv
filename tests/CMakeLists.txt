@@ -18,3 +18,24 @@ add_custom_command(TARGET test_spmv_cpu POST_BUILD
         $<TARGET_FILE:test_spmv_cpu>
         ${CMAKE_BINARY_DIR}/test_spmv_cpu
 )
+
+if(CUDAToolkit_FOUND)
+    add_executable(test_spmv_gpu
+        test_spmv_gpu.cpp
+    )
+
+    target_include_directories(test_spmv_gpu PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/src/common
+        ${PROJECT_SOURCE_DIR}/src/cpu
+        ${PROJECT_SOURCE_DIR}/src/gpu
+    )
+
+    target_link_libraries(test_spmv_gpu PRIVATE common spmv_cpu spmv_gpu_v1)
+
+    add_custom_command(TARGET test_spmv_gpu POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:test_spmv_gpu>
+            ${CMAKE_BINARY_DIR}/test_spmv_gpu
+    )
+endif()

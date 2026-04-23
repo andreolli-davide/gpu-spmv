@@ -4,6 +4,7 @@
 
 #include "timer.h"
 #include <omp.h>
+#include <cuda_runtime.h>
 
 namespace spmv {
 
@@ -36,20 +37,61 @@ double CPUTimer::elapsed_ms() const {
 }
 
 // =============================================================================
-// GPUTimer — Phase 1 stub
+// GPUTimer — Full implementation
 // =============================================================================
-// Full implementation in Phase 2 with CUDA headers.
-// The stub is intentionally minimal so that:
-//   • The code compiles and links without CUDA installed
-//   • Any accidental use of GPUTimer in Phase 1 produces 0.0 rather than
-//     silent garbage or a crash
+// Uses CUDA events (RAII: created in constructor, destroyed in destructor).
+// User must call cudaStreamSynchronize() before elapsed_ms().
+// Gracefully degrades when CUDA is unavailable (returns 0.0).
 // =============================================================================
-GPUTimer::GPUTimer()  = default;
-GPUTimer::~GPUTimer() = default;
+GPUTimer::GPUTimer() {
+    cudaEvent_t* start = reinterpret_cast<cudaEvent_t*>(&cuda_start_event);
+    cudaEvent_t* stop = reinterpret_cast<cudaEvent_t*>(&cuda_stop_event);
+    cudaError_t err = cudaEventCreate(start);
+    if (err != cudaSuccess) {
+        cuda_start_event = nullptr;
+    }
+    err = cudaEventCreate(stop);
+    if (err != cudaSuccess) {
+        cuda_stop_event = nullptr;
+    }
+}
 
-void GPUTimer::start() {}
-void GPUTimer::stop()  {}
+GPUTimer::~GPUTimer() {
+    if (cuda_start_event != nullptr) {
+        cudaEventDestroy(reinterpret_cast<cudaEvent_t>(cuda_start_event));
+        cuda_start_event = nullptr;
+    }
+    if (cuda_stop_event != nullptr) {
+        cudaEventDestroy(reinterpret_cast<cudaEvent_t>(cuda_stop_event));
+        cuda_stop_event = nullptr;
+    }
+}
 
-double GPUTimer::elapsed_ms() const { return 0.0; }
+void GPUTimer::start() {
+    if (cuda_start_event == nullptr) {
+        return;
+    }
+    cudaEventRecord(reinterpret_cast<cudaEvent_t>(cuda_start_event), 0);
+}
+
+void GPUTimer::stop() {
+    if (cuda_stop_event == nullptr) {
+        return;
+    }
+    cudaEventRecord(reinterpret_cast<cudaEvent_t>(cuda_stop_event), 0);
+}
+
+double GPUTimer::elapsed_ms() const {
+    if (cuda_start_event == nullptr || cuda_stop_event == nullptr) {
+        return 0.0;
+    }
+    cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(cuda_stop_event));
+
+    float ms = 0.0f;
+    cudaEventElapsedTime(&ms,
+        reinterpret_cast<cudaEvent_t>(cuda_start_event),
+        reinterpret_cast<cudaEvent_t>(cuda_stop_event));
+    return static_cast<double>(ms);
+}
 
 } // namespace spmv

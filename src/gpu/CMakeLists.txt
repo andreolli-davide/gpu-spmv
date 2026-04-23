@@ -1,6 +1,13 @@
-add_library(gpu_stub INTERFACE)
+add_library(spmv_gpu_v1 STATIC
+    spmv_gpu_v1.cu
+)
 
-add_executable(spmv_gpu_v1 "")
+target_include_directories(spmv_gpu_v1 PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CUDAToolkit_INCLUDE_DIRS}
+)
 
-# Placeholder — Phase 2
-message(STATUS "gpu/spmv_gpu_v1 not yet implemented (Phase 2)")
+target_link_libraries(spmv_gpu_v1 PUBLIC
+    common
+    ${CUDAToolkit_LIBRARIES}
+)
