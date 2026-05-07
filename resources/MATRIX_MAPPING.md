@@ -148,12 +148,18 @@ echo "Done!"
 
 ### Usage
 
-```bash
-# Make script executable
-chmod +x download_matrices.sh
+Use the provided download script:
 
-# Run download
-./download_matrices.sh
+```bash
+# Run the parallel download script
+bash scripts/download_all_29_matrices.sh
+```
+
+Or to generate a similar script using Python:
+
+```bash
+# Fetch download links
+python3 scripts/fetch_matrix_download_links.py
 ```
 
 ---

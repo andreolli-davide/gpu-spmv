@@ -4,18 +4,16 @@ Complete resource guide for obtaining and working with sparse matrices cited in 
 
 ## Quick Start
 
-### To Get All Matrix Download Links:
+### To Download All 29 Matrices:
 
-1. **Run the automated script**:
+1. **Run the bash download script** (fastest):
    ```bash
-   python3 fetch_matrix_links.py --format markdown --output matrix_links.md
+   bash scripts/download_all_29_matrices.sh
    ```
 
-2. **Or download the bash script**:
+2. **Or fetch links and download manually**:
    ```bash
-   python3 fetch_matrix_links.py --format bash --output download_matrices.sh
-   chmod +x download_matrices.sh
-   ./download_matrices.sh
+   python3 scripts/fetch_matrix_download_links.py
    ```
 
 3. **Or manually search**: Visit https://sparse.tamu.edu/ and search for any matrix name
@@ -49,28 +47,21 @@ Complete guide to downloading matrices from SuiteSparse Collection.
 
 **Use this to**: Understand how to get the matrices and their download formats.
 
-### 3. **fetch_matrix_links.py**
-Automated Python tool for generating download links and batch scripts.
+### 3. **fetch_matrix_details.py**
+Python tool for fetching detailed matrix properties from SuiteSparse Collection.
 
 **Features**:
-- Generates download links in multiple formats
-- Creates bash scripts for batch downloading
-- Creates Python scripts for programmatic downloading
-- Outputs in CSV, Markdown, or shell script formats
+- Fetches detailed matrix structure and properties
+- Extracts symmetry information
+- Outputs to structured format
+- Analyzes all 29 GPU SpMV benchmark matrices
 
 **Usage**:
 ```bash
-# Generate markdown table
-python3 fetch_matrix_links.py --format markdown --output links.md
+# Fetch detailed properties for all 29 matrices
+python3 scripts/fetch_matrix_details.py
 
-# Generate bash download script
-python3 fetch_matrix_links.py --format bash --output download.sh
-
-# Generate Python download script
-python3 fetch_matrix_links.py --format python --output download_matrices.py
-
-# Generate CSV for spreadsheet
-python3 fetch_matrix_links.py --format csv --output matrices.csv
+# Results saved with matrix information
 ```
 
 ---
@@ -129,26 +120,20 @@ A = mmread('webbase-1M/webbase-1M.mtx')
 ### Example 2: Batch Download All Matrices
 
 ```bash
-# Generate download script
-python3 fetch_matrix_links.py --format bash --output batch_download.sh
-chmod +x batch_download.sh
+# Use the provided bash script for parallel downloads
+bash scripts/download_all_29_matrices.sh
 
-# Run to download all ~29 matrices
-./batch_download.sh
-
-# Or use Python
-python3 fetch_matrix_links.py --format python --output bulk_download.py
-python3 bulk_download.py
+# Downloads all 29 matrices with fallback retry mechanism
 ```
 
-### Example 3: Generate For Your CI/CD Pipeline
+### Example 3: Fetch Matrix Download Links
 
 ```bash
-# Generate links in CSV for your data pipeline
-python3 fetch_matrix_links.py --format csv --output matrices.csv
+# Fetch download links from SuiteSparse
+python3 scripts/fetch_matrix_download_links.py
 
-# Generate markdown for documentation
-python3 fetch_matrix_links.py --format markdown --output docs/matrices.md
+# Get links for specific matrices
+python3 scripts/fetch_matrix_download_links.py pdb1HYS circuit5M consph
 ```
 
 ---
@@ -191,14 +176,14 @@ python3 fetch_matrix_links.py --format markdown --output docs/matrices.md
 
 ### Purpose Mapping
 
-| Need | Use This Document |
-|------|-------------------|
-| Understand which matrices are cited | `cited_matrices_in_benchmarks.md` |
-| Download matrices | `matrix_download_links.md` |
-| Generate download links automatically | `fetch_matrix_links.py` |
-| Learn about matrix properties | `cited_matrices_in_benchmarks.md` |
-| Get batch download script | Run `fetch_matrix_links.py --format bash` |
-| Integrate into pipeline | Run `fetch_matrix_links.py --format python` |
+| Need | Use This Document | Script |
+|------|-------------------|--------|
+| Understand which matrices are cited | `cited_matrices_in_benchmarks.md` | - |
+| Download all 29 matrices | `matrix_download_links.md` | `download_all_29_matrices.sh` |
+| Quick matrix lookup | `PAPER_TO_SUITESPARSE_GUIDE.md` | - |
+| Comprehensive reference | `MATRIX_MAPPING.md` | - |
+| Learn about matrix properties | `MATRIX_DETAILED_PROPERTIES.md` | `fetch_matrix_details.py` |
+| Get download links | - | `fetch_matrix_download_links.py` |
 
 ---
 
@@ -252,9 +237,9 @@ head -20 matrix_name.mtx
 
 If you identify additional matrices or find download links that don't work:
 
-1. Update the matrix group information in `fetch_matrix_links.py`
+1. Update the matrix group information in the appropriate script (`fetch_matrix_download_links.py` or `fetch_matrix_details.py`)
 2. Test the download link
-3. Update the documentation files
+3. Update the documentation files (`MATRIX_MAPPING.md`, `DATASET_SELECTION.md`, etc.)
 4. Consider submitting findings back to research community
 
 ---

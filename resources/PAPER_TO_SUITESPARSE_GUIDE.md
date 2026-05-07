@@ -103,19 +103,28 @@ Example:
 https://suitesparse-collection-website.herokuapp.com/MM/Williams/pdb1HYS.tar.gz
 ```
 
-### Option 2: Use Bash Script
+### Option 2: Use Bash Script (Parallel Download)
 
-Save the script from `MATRIX_MAPPING.md` as `download_matrices.sh` and run:
+Use the provided batch download script:
 ```bash
-chmod +x download_matrices.sh
-./download_matrices.sh
+bash scripts/download_all_29_matrices.sh
 ```
 
-### Option 3: Use Python Script
+### Option 3: Use Python Script (Fetch Links)
 
-Use the provided `fetch_matrix_download_links.py` script:
+Use the provided script to fetch download links:
 ```bash
-python3 fetch_matrix_download_links.py pdb1HYS consph circuit5M --format markdown
+python3 scripts/fetch_matrix_download_links.py pdb1HYS consph circuit5M
+
+# Or fetch all 29 matrices
+python3 scripts/fetch_matrix_download_links.py
+```
+
+### Option 4: Fetch Detailed Matrix Properties
+
+Use the provided script to get matrix properties:
+```bash
+python3 scripts/fetch_matrix_details.py
 ```
 
 ---

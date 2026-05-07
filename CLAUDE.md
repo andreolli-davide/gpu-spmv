@@ -27,17 +27,29 @@ gpu-spmv-2/
 
 **All project documentation is in `resources/`** for easy discovery and context injection.
 
-- `resources/DATASET_SELECTION.md` — Dataset selection criteria and guidelines
-- `resources/MATRIX_MAPPING.md` — Complete mapping of paper names to SuiteSparse collection IDs
-- `resources/MATRIX_RESOURCES.md` — Additional matrix resource information
-- `resources/MATRIX_DETAILED_PROPERTIES.md` — Detailed properties of all test matrices
+### Core References (Start Here)
+
+- `resources/README.md` — Complete overview and quick start guide
+- `resources/PAPER_TO_SUITESPARSE_GUIDE.md` — Quick lookup by paper name with download instructions
+- `resources/MATRIX_MAPPING.md` — Comprehensive reference with all 29 matrices and metadata
+- `resources/DATASET_SELECTION.md` — Subset of 10 matrices selected for the project with rationale
+
+### Additional Resources
+
+- `resources/MATRIX_DETAILED_PROPERTIES.md` — Detailed matrix properties and characteristics
 - `resources/matrix_download_links.md` — Quick reference for matrix download links
-- `resources/PAPER_TO_SUITESPARSE_GUIDE.md` — Guide for mapping paper references to SuiteSparse
-- `resources/cited_matrices_in_benchmarks.md` — Matrices cited in benchmarks
-- `resources/README.md` — Overview of available resources
+- `resources/cited_matrices_in_benchmarks.md` — Original extraction from papers with citations
+- `resources/MATRIX_RESOURCES.md` — Workflows, examples, and troubleshooting guide
 - `docs/superpowers/` — Development notes, design docs, and implementation plans
 
-When injecting context into Claude prompts, include the `resources/` folder to provide comprehensive documentation without token overhead.
+### Context Injection
+
+When injecting context into Claude prompts, include the `resources/` folder to provide comprehensive documentation without token overhead:
+
+```bash
+# All documentation is consolidated and cleaned
+resources/  # Include this for complete matrix documentation
+```
 
 ## Scripts
 

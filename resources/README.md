@@ -34,17 +34,20 @@ resources/MATRIX_MAPPING.md
 
 **Option A: Download All 29 Matrices (Bash)**
 ```bash
-cd resources
-bash ../scripts/download_matrices.sh
+bash scripts/download_all_29_matrices.sh
 ```
 
 **Option B: Download Selected Matrices (Python)**
 ```bash
-cd scripts
-python3 fetch_matrix_download_links.py pdb1HYS circuit5M ldoor --format markdown
+python3 scripts/fetch_matrix_download_links.py pdb1HYS circuit5M ldoor --format markdown
 ```
 
-**Option C: Manual Download**
+**Option C: Fetch Matrix Details (Python)**
+```bash
+python3 scripts/fetch_matrix_details.py
+```
+
+**Option D: Manual Download**
 Click any download link in `PAPER_TO_SUITESPARSE_GUIDE.md` or `MATRIX_MAPPING.md`
 
 ---
@@ -74,16 +77,18 @@ Click any download link in `PAPER_TO_SUITESPARSE_GUIDE.md` or `MATRIX_MAPPING.md
 gpu-spmv-2/
 ├── resources/
 │   ├── README.md (this file)
-│   ├── PAPER_TO_SUITESPARSE_GUIDE.md (START HERE)
-│   ├── MATRIX_MAPPING.md (comprehensive reference)
-│   ├── cited_matrices_in_benchmarks.md (original extraction)
-│   ├── MATRIX_RESOURCES.md (guides & examples)
-│   └── MATRIX_ALTERNATIVES.md (keyword index)
+│   ├── PAPER_TO_SUITESPARSE_GUIDE.md (START HERE - quick reference)
+│   ├── MATRIX_MAPPING.md (comprehensive reference with metadata)
+│   ├── DATASET_SELECTION.md (subset of 10 matrices for project)
+│   ├── MATRIX_DETAILED_PROPERTIES.md (detailed matrix properties)
+│   ├── MATRIX_RESOURCES.md (guides & troubleshooting)
+│   ├── cited_matrices_in_benchmarks.md (original extraction from papers)
+│   └── matrix_download_links.md (download URL reference)
 │
 ├── scripts/
-│   ├── fetch_matrix_download_links.py (main automation tool)
-│   ├── download_matrices.sh (batch download script)
-│   └── bulk_download.py (batch processor)
+│   ├── download_all_29_matrices.sh (batch download script)
+│   ├── fetch_matrix_download_links.py (fetch download links)
+│   └── fetch_matrix_details.py (fetch detailed matrix properties)
 │
 └── data/
     └── (downloaded matrices will go here)
@@ -175,44 +180,52 @@ gpu-spmv-2/
 
 ## Tools & Scripts
 
-### Python Script: `fetch_matrix_download_links.py`
+### Bash Script: `download_all_29_matrices.sh`
 
-Autonomously searches SuiteSparse collection and generates download links.
+Batch downloads all 29 GPU SpMV benchmark matrices from SuiteSparse Collection in parallel.
 
 ```bash
-# Search for specific matrices
-python3 scripts/fetch_matrix_download_links.py pdb1HYS circuit5M
-
-# Generate markdown table with all download links
-python3 scripts/fetch_matrix_download_links.py \
-  pdb1HYS consph mac_econ_fwd500 ... \
-  --format markdown --output matrices.md
-
-# Generate bash download script
-python3 scripts/fetch_matrix_download_links.py \
-  --format bash --output download.sh
+bash scripts/download_all_29_matrices.sh
 ```
 
 **Features:**
-- Parses SuiteSparse collection HTML
-- Extracts matrix metadata (group, dimensions, nnz)
-- Generates URLs for all formats
-- Supports multiple output formats
-
-### Bash Script: `download_matrices.sh`
-
-Batch downloads all 29 matrices in parallel.
-
-```bash
-chmod +x scripts/download_matrices.sh
-./scripts/download_matrices.sh
-```
-
-**Features:**
-- Parallel downloads
+- Parallel downloads (faster)
+- Fallback retry mechanism for failed downloads
 - Progress indicators
 - Error handling
-- Creates organized output directory
+- Organized output directory
+- Downloads all 29 matrices automatically
+
+### Python Script: `fetch_matrix_download_links.py`
+
+Fetches actual download links by parsing SuiteSparse collection pages.
+
+```bash
+# Fetch links for specific matrices
+python3 scripts/fetch_matrix_download_links.py pdb1HYS circuit5M
+
+# Fetch all 29 and output as markdown
+python3 scripts/fetch_matrix_download_links.py --format markdown
+```
+
+**Features:**
+- Parses SuiteSparse collection pages
+- Extracts matrix metadata (group, dimensions, nnz)
+- Generates URLs for all download formats (MM, RB, MAT)
+
+### Python Script: `fetch_matrix_details.py`
+
+Fetches detailed matrix properties including structure, symmetry, and other characteristics.
+
+```bash
+python3 scripts/fetch_matrix_details.py
+```
+
+**Features:**
+- Extracts detailed matrix properties
+- Parses matrix structure information
+- Identifies symmetry characteristics
+- Outputs structured data
 
 ---
 
