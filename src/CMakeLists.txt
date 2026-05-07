@@ -1,6 +1,9 @@
 # Build parser library
 add_subdirectory(parser)
 
+# Build spmv_cpu library
+add_subdirectory(spmv_cpu)
+
 # Build hellocuda (only if CUDA is available)
 if(CUDAToolkit_FOUND)
   enable_language(CUDA)
