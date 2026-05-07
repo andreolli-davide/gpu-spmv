@@ -39,6 +39,14 @@ gpu-spmv-2/
 
 When injecting context into Claude prompts, include the `resources/` folder to provide comprehensive documentation without token overhead.
 
+## Scripts
+
+All utility scripts are in `scripts/` for matrix downloading and data fetching:
+
+- `scripts/download_all_29_matrices.sh` — Download all 29 GPU SpMV benchmark matrices from SuiteSparse Collection (parallel with fallback retry)
+- `scripts/fetch_matrix_download_links.py` — Fetch actual download links by parsing SuiteSparse collection pages
+- `scripts/fetch_matrix_details.py` — Fetch detailed matrix properties (structure, symmetry, etc.)
+
 ## Building
 
 ```bash
