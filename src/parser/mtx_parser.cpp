@@ -108,7 +108,7 @@ MtxCoo parse_mtx(const std::string& filepath) {
     auto parse_data_line = [&](const std::string& l) {
         std::istringstream iss(l);
         int32_t r, c;
-        double v = 1.0; // default for pattern matrices
+        float v = 1.0f; // default for pattern matrices
         if (!(iss >> r >> c)) {
             throw std::runtime_error("Invalid MTX data line: " + l);
         }
@@ -252,9 +252,9 @@ MtxCoo csr_to_coo(const MtxCsr& csr) {
 /// This is the reference implementation used to verify the GPU kernel
 /// produces numerically correct results.  Floating-point accumulation order
 /// is deterministic (row-major, stride-1 on values and col_indices).
-void spmv_cpu(const MtxCsr& csr, const double* x, double* y) {
+void spmv_cpu(const MtxCsr& csr, const float* x, float* y) {
     for (int32_t row = 0; row < csr.num_rows; ++row) {
-        double sum = 0.0;
+        float sum = 0.0f;
         for (int32_t idx = csr.row_ptr[row]; idx < csr.row_ptr[row + 1]; ++idx) {
             sum += csr.values[idx] * x[csr.col_indices[idx]];
         }
@@ -269,9 +269,9 @@ void spmv_cpu(const MtxCsr& csr, const double* x, double* y) {
 /// rather than sorted by row, the accumulation order differs from CSR —
 /// this is deliberate, as it exposes floating-point associativity differences
 /// between GPU and CPU when the kernel is validated against this path.
-void spmv_cpu(const MtxCoo& coo, const double* x, double* y) {
+void spmv_cpu(const MtxCoo& coo, const float* x, float* y) {
     for (int32_t row = 0; row < coo.num_rows; ++row) {
-        y[row] = 0.0;
+        y[row] = 0.0f;
     }
     for (int32_t i = 0; i < coo.num_nonzeros; ++i) {
         int32_t row = coo.row_indices[i];

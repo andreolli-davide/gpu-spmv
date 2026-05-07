@@ -16,7 +16,7 @@ struct MtxCoo {
     int32_t num_nonzeros;
     std::vector<int32_t> row_indices;  ///< 0-indexed row of each nonzero
     std::vector<int32_t> col_indices;  ///< 0-indexed column of each nonzero
-    std::vector<double> values;        ///< numeric value of each nonzero
+    std::vector<float> values;         ///< numeric value of each nonzero
 };
 
 /// Sparse matrix in Compressed Sparse Row (CSR) format — the workhorse format
@@ -32,7 +32,7 @@ struct MtxCsr {
     int32_t num_nonzeros;
     std::vector<int32_t> row_ptr;       ///< size = num_rows + 1; row_ptr[i] is start of row i
     std::vector<int32_t> col_indices;   ///< column index for each nonzero (0-indexed)
-    std::vector<double> values;        ///< numeric value for each nonzero
+    std::vector<float> values;         ///< numeric value for each nonzero
 };
 
 /// GPU-resident sparse matrix in CSR format.
@@ -46,7 +46,7 @@ struct DeviceMatrix {
     int32_t num_nonzeros;
     int32_t* d_row_ptr;     ///< device pointer, size = num_rows + 1
     int32_t* d_col_indices; ///< device pointer, size = num_nonzeros
-    double*  d_values;      ///< device pointer, size = num_nonzeros
+    float*   d_values;      ///< device pointer, size = num_nonzeros
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ MtxCoo csr_to_coo(const MtxCsr& csr);
 /// CPU SpMV: y = A*x  using CSR layout.
 /// Straightforward row-by-row accumulation.  Serves as the reference
 /// implementation for correctness verification against the GPU kernel.
-void spmv_cpu(const MtxCsr& csr, const double* x, double* y);
+void spmv_cpu(const MtxCsr& csr, const float* x, float* y);
 
 /// CPU SpMV: y = A*x  using COO layout.
 /// Accumulator is zeroed once upfront, then each nonzero adds to its row.
@@ -90,7 +90,7 @@ void spmv_cpu(const MtxCsr& csr, const double* x, double* y);
 /// CSR (no guarantee on traversal order), which means floating-point
 /// accumulation order varies between COO and CSR — intentional, to catch
 /// FP-associativity bugs in GPU kernels.
-void spmv_cpu(const MtxCoo& coo, const double* x, double* y);
+void spmv_cpu(const MtxCoo& coo, const float* x, float* y);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GPU parse + SpMV
@@ -109,4 +109,4 @@ void free_gpu(DeviceMatrix* mat);
 /// GPU SpMV kernel — one thread per matrix row, each thread accumulates
 /// its row's nonzeros independently.  Launch configuration is chosen inside
 /// the function (block_size=256, enough blocks to cover all rows).
-void spmv_gpu_kernel(const DeviceMatrix& csr, const double* d_x, double* d_y);
+void spmv_gpu_kernel(const DeviceMatrix& csr, const float* d_x, float* d_y);
