@@ -1,0 +1,35 @@
+# Sparse Matrix Download Links
+
+Complete list of download links for matrices cited in GPU SpMV papers.
+
+| Requested Name | Actual Name | Group | Rows | Cols | NNZ | Matrix Market | RB | MATLAB |
+|---|---|---|---|---|---|---|---|---|
+| Protein | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| FEM/Spheres | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| FEM/Cantilever | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Wind Tunnel | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| FEM/Harbor | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| QCD | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| FEM/Ship | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Economics | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Epidemiology | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| FEM/Accelerator | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Circuit | circuit5M | Freescale | 5,558,326 | 5,558,326 | 59,524,291 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Freescale/circuit5M.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Freescale/circuit5M.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Freescale/circuit5M.mat) |
+| Webbase | webbase-2001 | LAW | 118,142,155 | 118,142,155 | 1,019,903,190 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/LAW/webbase-2001.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/LAW/webbase-2001.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/LAW/webbase-2001.mat) |
+| LP | nlpkkt240 | Schenk | 27,993,600 | 27,993,600 | 760,648,352 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Schenk/nlpkkt240.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Schenk/nlpkkt240.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Schenk/nlpkkt240.mat) |
+| Circuit5M | circuit5M | Freescale | 5,558,326 | 5,558,326 | 59,524,291 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Freescale/circuit5M.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Freescale/circuit5M.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Freescale/circuit5M.mat) |
+| ASIC_320k | ASIC_320k | Sandia | 321,821 | 321,821 | 1,931,828 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Sandia/ASIC_320k.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Sandia/ASIC_320k.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Sandia/ASIC_320k.mat) |
+| ASIC_680k | ASIC_680k | Sandia | 682,862 | 682,862 | 2,638,997 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Sandia/ASIC_680k.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Sandia/ASIC_680k.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Sandia/ASIC_680k.mat) |
+| webbase-1M | webbase-1M | Williams | 1,000,005 | 1,000,005 | 3,105,536 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Williams/webbase-1M.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Williams/webbase-1M.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Williams/webbase-1M.mat) |
+| cnr-2000 | cnr-2000 | LAW | 325,557 | 325,557 | 3,216,152 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/LAW/cnr-2000.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/LAW/cnr-2000.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/LAW/cnr-2000.mat) |
+| eu-2005 | eu-2005 | LAW | 862,664 | 862,664 | 19,235,140 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/LAW/eu-2005.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/LAW/eu-2005.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/LAW/eu-2005.mat) |
+| in-2004 | in-2004 | LAW | 1,382,908 | 1,382,908 | 16,917,053 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/LAW/in-2004.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/LAW/in-2004.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/LAW/in-2004.mat) |
+| thermomech_dK | thermomech_dK | Botonakis | 204,316 | 204,316 | 2,846,228 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Botonakis/thermomech_dK.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Botonakis/thermomech_dK.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Botonakis/thermomech_dK.mat) |
+| ldoor | ldoor | GHS_psdef | 952,203 | 952,203 | 42,493,817 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/ldoor.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/GHS_psdef/ldoor.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/GHS_psdef/ldoor.mat) |
+| mip1 | mip1 | Andrianov | 66,463 | 66,463 | 10,352,819 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Andrianov/mip1.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Andrianov/mip1.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Andrianov/mip1.mat) |
+| dc2 | hvdc2 | HVDC | 189,860 | 189,860 | 1,339,638 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/HVDC/hvdc2.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/HVDC/hvdc2.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/HVDC/hvdc2.mat) |
+| FullChip | FullChip | Freescale | 2,987,012 | 2,987,012 | 26,621,983 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Freescale/FullChip.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Freescale/FullChip.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Freescale/FullChip.mat) |
+| ins2 | ins2 | Andrianov | 309,412 | 309,412 | 2,751,484 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/Andrianov/ins2.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/Andrianov/ins2.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/Andrianov/ins2.mat) |
+| Ga41As41H72 | Ga41As41H72 | PARSEC | 268,096 | 268,096 | 18,488,476 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/PARSEC/Ga41As41H72.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/PARSEC/Ga41As41H72.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/PARSEC/Ga41As41H72.mat) |
+| Si41Ge41H72 | Si41Ge41H72 | PARSEC | 185,639 | 185,639 | 15,011,265 | [MM](https://suitesparse-collection-website.herokuapp.com/MM/PARSEC/Si41Ge41H72.tar.gz) | [RB](https://suitesparse-collection-website.herokuapp.com/RB/PARSEC/Si41Ge41H72.tar.gz) | [MAT](https://suitesparse-collection-website.herokuapp.com/mat/PARSEC/Si41Ge41H72.mat) |
+| Dense | NOT FOUND | N/A | N/A | N/A | N/A | N/A | N/A | N/A |

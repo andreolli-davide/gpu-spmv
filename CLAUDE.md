@@ -15,12 +15,29 @@ gpu-spmv-2/
 ├── include/              # Headers
 ├── data/                 # Matrix market files, test data
 ├── scripts/              # Build and run scripts
+├── resources/            # Documentation (matrix mappings, dataset guides, etc.)
 ├── build/                # CMake build output (gitignored)
 ├── outputs/              # Test outputs and logs (gitignored)
-├── docs/                 # Project documentation
+├── docs/                 # Development notes (plans, specs, design docs)
 ├── CLAUDE.md             # This file
 └── AGENTS.md             # Agent instructions
 ```
+
+## Documentation
+
+**All project documentation is in `resources/`** for easy discovery and context injection.
+
+- `resources/DATASET_SELECTION.md` — Dataset selection criteria and guidelines
+- `resources/MATRIX_MAPPING.md` — Complete mapping of paper names to SuiteSparse collection IDs
+- `resources/MATRIX_RESOURCES.md` — Additional matrix resource information
+- `resources/MATRIX_DETAILED_PROPERTIES.md` — Detailed properties of all test matrices
+- `resources/matrix_download_links.md` — Quick reference for matrix download links
+- `resources/PAPER_TO_SUITESPARSE_GUIDE.md` — Guide for mapping paper references to SuiteSparse
+- `resources/cited_matrices_in_benchmarks.md` — Matrices cited in benchmarks
+- `resources/README.md` — Overview of available resources
+- `docs/superpowers/` — Development notes, design docs, and implementation plans
+
+When injecting context into Claude prompts, include the `resources/` folder to provide comprehensive documentation without token overhead.
 
 ## Building
 
