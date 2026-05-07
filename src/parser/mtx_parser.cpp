@@ -53,10 +53,32 @@ MtxCoo parse_mtx(const std::string& filepath) {
         throw std::runtime_error("Cannot open MTX file: " + filepath);
     }
 
+    // ── Step 0: parse the %%MatrixMarket banner ─────────────────────────────
+    // Format: %%MatrixMarket matrix coordinate|array real|complex|integer|pattern general|symmetric|...
+    bool is_pattern = false;
+    std::string line;
+    if (std::getline(file, line)) {
+        auto trimmed = trim(line);
+        if (trimmed.size() >= 2 && trimmed[0] == '%' && trimmed[1] == '%') {
+            std::istringstream iss(trimmed);
+            std::string token, object, format, field;
+            iss >> token >> object >> format >> field; // %%MatrixMarket matrix coordinate real
+            // Convert to lowercase for case-insensitive comparison
+            std::transform(format.begin(), format.end(), format.begin(), ::tolower);
+            std::transform(field.begin(), field.end(), field.begin(), ::tolower);
+            if (format == "array") {
+                throw std::runtime_error(
+                    "Dense (array) MTX format is not supported — only coordinate format: "
+                    + filepath);
+            }
+            is_pattern = (field == "pattern");
+        }
+    }
+
+    // ── Step 1: find the size/nnz header line ───────────────────────────────
     int32_t num_rows = 0, num_cols = 0, num_nonzeros = 0;
     bool header_found = false;
 
-    std::string line;
     while (std::getline(file, line)) {
         if (is_comment_or_empty(line)) continue;
         if (!header_found) {
@@ -74,6 +96,7 @@ MtxCoo parse_mtx(const std::string& filepath) {
         throw std::runtime_error("MTX header not found in file: " + filepath);
     }
 
+    // ── Step 2: parse nonzero entries ───────────────────────────────────────
     MtxCoo coo;
     coo.num_rows = num_rows;
     coo.num_cols = num_cols;
@@ -82,18 +105,38 @@ MtxCoo parse_mtx(const std::string& filepath) {
     coo.col_indices.reserve(num_nonzeros);
     coo.values.reserve(num_nonzeros);
 
-    while (std::getline(file, line)) {
-        if (is_comment_or_empty(line)) continue;
-        std::istringstream iss(line);
+    auto parse_data_line = [&](const std::string& l) {
+        std::istringstream iss(l);
         int32_t r, c;
-        double v;
-        if (!(iss >> r >> c >> v)) {
-            throw std::runtime_error("Invalid MTX data line: " + line);
+        double v = 1.0; // default for pattern matrices
+        if (!(iss >> r >> c)) {
+            throw std::runtime_error("Invalid MTX data line: " + l);
         }
-        coo.row_indices.push_back(r - 1); // MTX is 1-based → 0-based
+        if (!is_pattern && !(iss >> v)) {
+            throw std::runtime_error("Invalid MTX data line (missing value): " + l);
+        }
+        if (r - 1 < 0 || r - 1 >= num_rows || c - 1 < 0 || c - 1 >= num_cols) {
+            throw std::runtime_error("MTX index out of range: row=" +
+                std::to_string(r) + " col=" + std::to_string(c));
+        }
+        coo.row_indices.push_back(r - 1);
         coo.col_indices.push_back(c - 1);
         coo.values.push_back(v);
+    };
+
+    // The header loop already consumed the first data line into `line` —
+    // parse it here so it isn't lost.
+    if (!is_comment_or_empty(line)) {
+        parse_data_line(line);
     }
+
+    while (std::getline(file, line)) {
+        if (is_comment_or_empty(line)) continue;
+        parse_data_line(line);
+    }
+
+    // Reconcile: use actual parsed count, not the header-declared value.
+    coo.num_nonzeros = static_cast<int32_t>(coo.row_indices.size());
 
     return coo;
 }
@@ -129,12 +172,15 @@ MtxCsr coo_to_csr(const MtxCoo& coo) {
     MtxCsr csr;
     csr.num_rows = coo.num_rows;
     csr.num_cols = coo.num_cols;
-    csr.num_nonzeros = coo.num_nonzeros;
 
+    // Use actual vector size — not the header-declared num_nonzeros —
+    // to guard against truncated files or header/data mismatches.
+    const int32_t nnz = static_cast<int32_t>(coo.row_indices.size());
+    csr.num_nonzeros = nnz;
     csr.row_ptr.resize(coo.num_rows + 1, 0);
 
     // Step 1 — count nonzeros per row
-    for (int32_t i = 0; i < coo.num_nonzeros; ++i) {
+    for (int32_t i = 0; i < nnz; ++i) {
         ++csr.row_ptr[coo.row_indices[i]];
     }
 
@@ -149,10 +195,10 @@ MtxCsr coo_to_csr(const MtxCoo& coo) {
     // Step 3 — scatter nonzeros into col_indices and values using the
     //         working copy to track the next free position per row
     std::vector<int32_t> row_ptr_copy = csr.row_ptr;
-    csr.col_indices.resize(coo.num_nonzeros);
-    csr.values.resize(coo.num_nonzeros);
+    csr.col_indices.resize(nnz);
+    csr.values.resize(nnz);
 
-    for (int32_t i = 0; i < coo.num_nonzeros; ++i) {
+    for (int32_t i = 0; i < nnz; ++i) {
         int32_t row = coo.row_indices[i];
         int32_t pos = row_ptr_copy[row]++;
         csr.col_indices[pos] = coo.col_indices[i];
