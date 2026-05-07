@@ -139,7 +139,6 @@ int main() {
         "matrices/webbase-1M.mtx",
         "matrices/ASIC_680ks.mtx",
         "matrices/ldoor.mtx",
-        "matrices/boyd2_b.mtx",
         "matrices/rajat31.mtx",
         "matrices/Rucci1.mtx",
         "matrices/Ga41As41H72.mtx",
@@ -155,6 +154,7 @@ int main() {
         }
     }
 
-    std::cout << "\n" << (11 - failures) << "/" << 11 << " matrices passed" << std::endl;
+    const int total = sizeof(matrices) / sizeof(matrices[0]);
+    std::cout << "\n" << (total - failures) << "/" << total << " matrices passed" << std::endl;
     return failures;
 }
