@@ -31,7 +31,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    MtxCsr A = parse_mtx_csr(argv[1]);
+    MtxCsr A;
+    try {
+        A = parse_mtx_csr(argv[1]);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "Error loading matrix '%s': %s\n", argv[1], e.what());
+        return 1;
+    }
     std::printf("Matrix: %d rows, %d cols, %d nnz\n", A.num_rows, A.num_cols, A.num_nonzeros);
 
     bool all_pass = true;

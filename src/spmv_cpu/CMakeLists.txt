@@ -5,4 +5,4 @@ target_link_libraries(spmv_cpu PUBLIC mtx_parser)
 
 # test executable
 add_executable(test_spmv_cpu test_spmv_cpu.cpp)
-target_link_libraries(test_spmv_cpu spmv_cpu mtx_parser)
+target_link_libraries(test_spmv_cpu spmv_cpu)
