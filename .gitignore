@@ -2,5 +2,14 @@
 *.err
 *.log
 
+# macOS
+.DS_Store
+
+# Build
+build/
+compile_commands.json
+.cache/
+
+# Data
 matrices/
 outputs/
