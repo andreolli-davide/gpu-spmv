@@ -4,9 +4,10 @@ add_subdirectory(parser)
 # Build spmv_cpu library
 add_subdirectory(spmv_cpu)
 
-# Build hellocuda (only if CUDA is available)
+# GPU kernels and validation (only if CUDA is available)
 if(CUDAToolkit_FOUND)
   enable_language(CUDA)
+  add_subdirectory(spmv_gpu)
   add_executable(hellocuda hellocuda.cu)
   target_link_libraries(hellocuda CUDA::cudart)
 else()
