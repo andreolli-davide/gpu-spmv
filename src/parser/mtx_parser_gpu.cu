@@ -55,7 +55,7 @@ void parse_mtx_gpu(const std::string& filepath, DeviceMatrix* result) {
     //         (no cudaMallocManaged — explicit host-visible device memory)
     cudaMalloc(&result->d_row_ptr,     (csr.num_rows + 1) * sizeof(int32_t));
     cudaMalloc(&result->d_col_indices, csr.num_nonzeros * sizeof(int32_t));
-    cudaMalloc(&result->d_values,      csr.num_nonzeros * sizeof(double));
+    cudaMalloc(&result->d_values,      csr.num_nonzeros * sizeof(float));
 
     // Copy CSR structure from host to device
     cudaMemcpy(result->d_row_ptr,     csr.row_ptr.data(),
@@ -63,7 +63,7 @@ void parse_mtx_gpu(const std::string& filepath, DeviceMatrix* result) {
     cudaMemcpy(result->d_col_indices, csr.col_indices.data(),
                csr.num_nonzeros * sizeof(int32_t), cudaMemcpyHostToDevice);
     cudaMemcpy(result->d_values,      csr.values.data(),
-               csr.num_nonzeros * sizeof(double), cudaMemcpyHostToDevice);
+               csr.num_nonzeros * sizeof(float), cudaMemcpyHostToDevice);
 
     // Copy metadata so callers can read dimensions without a round-trip
     result->num_rows     = csr.num_rows;
@@ -112,16 +112,16 @@ void free_gpu(DeviceMatrix* mat) {
 __global__
 void spmv_gpu_kernel_impl(const int32_t* row_ptr,
                           const int32_t* col_indices,
-                          const double*   values,
+                          const float*   values,
                           int32_t        num_rows,
-                          const double*   d_x,
-                          double*         d_y) {
+                          const float*   d_x,
+                          float*         d_y) {
     // Map thread ID to a matrix row.  Extra threads beyond num_rows guard
     // against out-of-bounds reads when num_rows is not a multiple of block_size.
     int32_t row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= num_rows) return;
 
-    double sum = 0.0;
+    float sum = 0.0f;
     // Inner loop iterates over this row's slice of the nonzero arrays.
     // The stride-1 access on values[] and col_indices[] is cache-friendly.
     for (int32_t idx = row_ptr[row]; idx < row_ptr[row + 1]; ++idx) {
@@ -136,7 +136,7 @@ void spmv_gpu_kernel_impl(const int32_t* row_ptr,
 /// needed to cover all rows.  Launches the kernel with default CUDA stream.
 /// callers are responsible for ensuring d_x is already on the device and
 /// d_y is zeroed (cudaMemset recommended before each launch).
-void spmv_gpu_kernel(const DeviceMatrix& csr, const double* d_x, double* d_y) {
+void spmv_gpu_kernel(const DeviceMatrix& csr, const float* d_x, float* d_y) {
     int32_t num_threads  = csr.num_rows;
     int32_t block_size  = 256;
     int32_t num_blocks = (num_threads + block_size - 1) / block_size;
