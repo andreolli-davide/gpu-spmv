@@ -14,7 +14,7 @@ static void spmv_csr_scalar_kernel(
     const float*   __restrict__ values,
     int32_t        num_rows,
     const float*   __restrict__ d_x,
-    float*                      d_y)
+    float* __restrict__         d_y)
 {
     int32_t row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= num_rows) return;
